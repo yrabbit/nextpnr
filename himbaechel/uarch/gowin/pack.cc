@@ -1308,6 +1308,7 @@ struct GowinPacker
 
         NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
         NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+
         for (int i = 0; i < 3; ++i) {
             IdString port = ctx->idf("BLKSEL%d", i);
             ci->addInput(port);
