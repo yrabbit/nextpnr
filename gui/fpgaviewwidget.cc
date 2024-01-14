@@ -574,8 +574,8 @@ void FPGAViewWidget::renderLines(void)
         }
         rendererData_->bbGlobal.setX0(-1.0f);
         rendererData_->bbGlobal.setY0(-1.0f);
-        rendererData_->bbGlobal.setX1(1.0f * (ctx_->getGridDimX()+1));
-        rendererData_->bbGlobal.setY1(1.0f * (ctx_->getGridDimY()+1));
+        rendererData_->bbGlobal.setX1(1.0f * (ctx_->getGridDimX() + 1));
+        rendererData_->bbGlobal.setY1(1.0f * (ctx_->getGridDimY() + 1));
         rendererData_->gfxGrid.last_render++;
     }
     if (highlightedOrSelectedChanged) {
@@ -721,7 +721,7 @@ void FPGAViewWidget::mousePressEvent(QMouseEvent *event)
     bool shift = QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier);
     bool ctrl = QApplication::keyboardModifiers().testFlag(Qt::ControlModifier);
     bool btn_right = event->buttons() & Qt::RightButton;
-    bool btn_mid = event->buttons() & Qt::MidButton;
+    bool btn_mid = event->buttons() & Qt::MiddleButton;
     bool btn_left = event->buttons() & Qt::LeftButton;
 
     if (btn_right || btn_mid || (btn_left && shift)) {
@@ -761,7 +761,7 @@ void FPGAViewWidget::mouseMoveEvent(QMouseEvent *event)
 
     bool shift = QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier);
     bool btn_right = event->buttons() & Qt::RightButton;
-    bool btn_mid = event->buttons() & Qt::MidButton;
+    bool btn_mid = event->buttons() & Qt::MiddleButton;
     bool btn_left = event->buttons() & Qt::LeftButton;
 
     if (btn_right || btn_mid || (btn_left && shift)) {

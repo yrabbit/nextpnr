@@ -71,7 +71,7 @@ class Item
         if (parent_ != nullptr) {
             parent_->addChild(this);
         }
-    };
+    }
 
     // Number of children.
     int count() const { return children_.count(); }
@@ -102,9 +102,9 @@ class Item
     virtual bool canFetchMore() const { return false; }
     virtual void fetchMore() {}
 
-    virtual boost::optional<Item *> getById(IdStringList id) { return boost::none; }
-    virtual void search(QList<Item *> &results, QString text, int limit) {}
-    virtual void updateElements(Context *ctx, std::vector<IdStringList> elements) {}
+    virtual boost::optional<Item *> getById(IdStringList /*id*/) { return boost::none; }
+    virtual void search(QList<Item *> & /*results*/, QString /*text*/, int /*limit*/) {}
+    virtual void updateElements(Context * /*ctx*/, std::vector<IdStringList> /*elements*/) {}
 
     virtual ~Item()
     {

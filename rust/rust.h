@@ -1,7 +1,7 @@
 /*
  *  nextpnr -- Next Generation Place and Route
  *
- *  Copyright (C) 2018  gatecat <gatecat@ds0.me>
+ *  Copyright (C) 2022  Lofty <lofty@yosyshq.com>
  *
  *  Permission to use, copy, modify, and/or distribute this software for any
  *  purpose with or without fee is hereby granted, provided that the above
@@ -17,21 +17,18 @@
  *
  */
 
-#include "log.h"
-#include "nextpnr.h"
+#ifndef RUST_H
+#define RUST_H
 
+#ifdef USE_RUST
+
+#include "nextpnr.h"
 NEXTPNR_NAMESPACE_BEGIN
 
-struct TimingOptCfg
-{
-    TimingOptCfg(Context * /*ctx*/) {}
-
-    // The timing optimiser will *only* optimise cells of these types
-    // Normally these would only be logic cells (or tiles if applicable), the algorithm makes little sense
-    // for other cell types
-    pool<IdString> cellTypes;
-};
-
-extern bool timing_opt(Context *ctx, TimingOptCfg cfg);
+void example_printnets(Context *ctx);
 
 NEXTPNR_NAMESPACE_END
+
+#endif
+
+#endif // RUST_H
