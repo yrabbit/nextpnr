@@ -1624,6 +1624,25 @@ struct GowinPacker
     }
 
     // ===================================
+    // Replace INV with LUT
+    // ===================================
+    void pack_inv(void)
+    {
+        log_info("Pack INV..\n");
+
+        for (auto &cell : ctx->cells) {
+            auto &ci = *cell.second;
+
+            if (ci.type == id_INV) {
+                ci.type = id_LUT4;
+                ci.renamePort(id_O, id_F);
+                ci.renamePort(id_I, id_I3); // use D - it's simple for INIT
+                ci.params[id_INIT] = Property(0x00ff);
+            }
+        }
+    }
+
+    // ===================================
     // PLL
     // ===================================
     void pack_pll(void)
@@ -1698,6 +1717,9 @@ struct GowinPacker
         ctx->check();
 
         pack_gsr();
+        ctx->check();
+
+        pack_inv();
         ctx->check();
 
         pack_wideluts();
