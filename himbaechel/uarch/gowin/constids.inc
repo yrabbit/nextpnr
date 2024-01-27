@@ -935,6 +935,9 @@ X(GSR)
 X(GSR0)
 X(GSRI)
 
+// inverter
+X(INV)
+
 // Oscillators
 X(OSC)
 X(OSCZ)
