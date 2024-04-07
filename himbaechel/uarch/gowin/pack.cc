@@ -2651,7 +2651,7 @@ struct GowinPacker
 						if (ctx->debug) {
 							log_info("PLL clkin driver:%s at %s, PLL bel:%s\n", ctx->nameOf(ni->driver.cell), ctx->getBelName(ni->driver.cell->bel).str(ctx).c_str(), pll_bel != BelId() ? ctx->getBelName(pll_bel).str(ctx).c_str(): "NULL");
 						}
-						if (0 && pll_bel != BelId() && used_pll_bels.count(pll_bel) == 0) {
+						if (pll_bel != BelId() && used_pll_bels.count(pll_bel) == 0) {
 							used_pll_bels.insert(pll_bel);
 							ctx->bindBel(pll_bel, &ci, PlaceStrength::STRENGTH_LOCKED);
 							ci.disconnectPort(id_CLKIN);
