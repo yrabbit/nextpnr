@@ -157,6 +157,18 @@ class ChipExtraData(BBAStruct):
         self.bottom_io.serialise(f"{context}_bottom_io", bba)
         bba.slice(f"{context}_diff_io_types", len(self.diff_io_types))
 
+@dataclass
+class PadExtraData(BBAStruct):
+    # Which PLL does this pad belong to.
+    pll_tile: IdString
+    pll_bel: IdString
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.pll_tile.index)
+        bba.u32(self.pll_bel.index)
+
 # Unique features of the tiletype
 class TypeDesc:
     def __init__(self, dups, tiletype = '', extra_func = None, sfx = 0):
@@ -917,6 +929,16 @@ def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc
     tdesc.tiletype = tiletype
     return tt
 
+# add Pll's bel to the pad
+def add_pll(db: chipdb, pad: PadInfo, ioloc: str):
+    try:
+        if ioloc in db.pad_pll:
+            row, col, bel_name = db.pad_pll[ioloc]
+            print(row, col, bel_name)
+            pad.extra_data = PadExtraData(chip.strs.id(f'X{col}Y{row}'), chip.strs.id(bel_name))
+    except:
+        return
+
 # pinouts, packages...
 _tbrlre = re.compile(r"IO([TBRL])(\d+)(\w)")
 def create_packages(chip: Chip, db: chipdb):
@@ -953,6 +975,8 @@ def create_packages(chip: Chip, db: chipdb):
             pad_func = pad_func.rstrip('/')
             bank = int(db.pin_bank[io_loc])
             pad = pkg.create_pad(pinno, tile, bel, pad_func, bank)
+            # add PLL if any is connected
+            add_pll(pad, ioloc)
 
 # Extra chip data
 def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
