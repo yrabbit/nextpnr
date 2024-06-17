@@ -244,4 +244,32 @@ CellInfo *GowinUtils::dsp_bus_dst(const CellInfo *ci, const char *bus_prefix, in
     return connected_to_cell;
 }
 
+// Credit: https://cp-algorithms.com/graph/kuhn_maximum_bipartite_matching.html
+std::vector<int> GowinUtils::kuhn_find_maximum_bipartite_matching(int n, int k, std::vector<std::vector<int>> &g)
+{
+    std::vector<int> mt;
+    std::vector<bool> used(n);
+
+    auto try_kuhn = [&](int v, auto &try_kuhn_ref) -> bool {
+        if (used[v])
+            return false;
+        used[v] = true;
+        for (int to : g[v]) {
+            if (mt[to] == -1 || try_kuhn_ref(mt[to], try_kuhn_ref)) {
+                mt[to] = v;
+                return true;
+            }
+        }
+        return false;
+    };
+
+    mt.assign(k, -1);
+    for (int v = 0; v < n; ++v) {
+        used.assign(n, false);
+        try_kuhn(v, try_kuhn);
+    }
+
+    return mt;
+}
+
 NEXTPNR_NAMESPACE_END
