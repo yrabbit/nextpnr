@@ -6,6 +6,7 @@
 #include "himbaechel_constids.h"
 #include "himbaechel_helpers.h"
 
+#include <queue>
 #include "gowin.h"
 #include "gowin_utils.h"
 
@@ -271,5 +272,62 @@ std::vector<int> GowinUtils::kuhn_find_maximum_bipartite_matching(int n, int k, 
 
     return mt;
 }
+
+// original implementation: nextpnr/machxo2/pack.cc
+// Using a BFS, search for bels of a given type either upstream or downstream of another cell
+void GowinUtils::find_connected_bels(const CellInfo *cell, IdString port, IdString dest_type, IdString dest_pin,
+                                     int iter_limit, std::vector<BelId> &candidates)
+{
+    int iter = 0;
+    std::queue<WireId> visit;
+    pool<WireId> seen_wires;
+    pool<BelId> seen_bels;
+
+    BelId bel = cell->bel;
+    if (bel == BelId())
+        return;
+    WireId start_wire = ctx->getBelPinWire(bel, port);
+    NPNR_ASSERT(start_wire != WireId());
+    PortType dir = ctx->getBelPinType(bel, port);
+
+    visit.push(start_wire);
+
+    while (!visit.empty() && (iter++ < iter_limit)) {
+        WireId cursor = visit.front();
+        visit.pop();
+        // Check to see if we have reached a valid bel pin
+        for (auto bp : ctx->getWireBelPins(cursor)) {
+            if (ctx->getBelType(bp.bel) != dest_type)
+                continue;
+            if (dest_pin != IdString() && bp.pin != dest_pin)
+                continue;
+            if (seen_bels.count(bp.bel))
+                continue;
+            seen_bels.insert(bp.bel);
+            candidates.push_back(bp.bel);
+        }
+        // Search in the appropriate direction up/downstream of the cursor
+        if (dir == PORT_OUT) {
+            for (PipId p : ctx->getPipsDownhill(cursor))
+                if (ctx->checkPipAvail(p)) {
+                    WireId dst = ctx->getPipDstWire(p);
+                    if (seen_wires.count(dst))
+                        continue;
+                    seen_wires.insert(dst);
+                    visit.push(dst);
+                }
+        } else {
+            for (PipId p : ctx->getPipsUphill(cursor))
+                if (ctx->checkPipAvail(p)) {
+                    WireId src = ctx->getPipSrcWire(p);
+                    if (seen_wires.count(src))
+                        continue;
+                    seen_wires.insert(src);
+                    visit.push(src);
+                }
+        }
+    }
+}
+
 
 NEXTPNR_NAMESPACE_END

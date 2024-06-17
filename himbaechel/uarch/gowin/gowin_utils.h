@@ -87,6 +87,11 @@ struct GowinUtils
     // make cell but do not include it in the list of chip cells.
     std::unique_ptr<CellInfo> create_cell(IdString name, IdString type);
 
+    // Find Bels connected to a bound cell
+    void find_connected_bels(const CellInfo *cell, IdString port, IdString dest_type, IdString dest_pin, int iter_limit,
+                             std::vector<BelId> &candidates);
+
+
     // Find a maximum bipartite matching
     template <typename T1, typename T2> std::map<T1, T2> find_maximum_bipartite_matching(std::map<T1, std::set<T2>> &G)
     {
