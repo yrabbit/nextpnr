@@ -62,6 +62,17 @@ inline bool type_is_dsp(IdString cell_type)
 }
 inline bool is_dsp(const CellInfo *cell) { return type_is_dsp(cell->type); }
 
+// Return true if a cell is CLKDIV
+inline bool type_is_clkdiv(IdString cell_type) { return cell_type == id_CLKDIV; }
+inline bool is_clkdiv(const CellInfo *cell) { return type_is_clkdiv(cell->type); }
+
+// Return true if a cell is CLKDIV2
+inline bool type_is_clkdiv2(IdString cell_type) { return cell_type == id_CLKDIV2; }
+inline bool is_clkdiv2(const CellInfo *cell) { return type_is_clkdiv2(cell->type); }
+
+// Return true for HCLK BELs
+inline bool is_hclk(const CellInfo *cell) { return type_is_clkdiv2(cell->type) || type_is_clkdiv(cell->type); }
+
 // ==========================================
 // extra data in the chip db
 // ==========================================
