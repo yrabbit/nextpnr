@@ -87,6 +87,14 @@ struct GowinUtils
     // make cell but do not include it in the list of chip cells.
     std::unique_ptr<CellInfo> create_cell(IdString name, IdString type);
 
+    // HCLK
+    BelId get_clkdiv_for_clkdiv2(BelId clkdiv2_bel) const;
+    BelId get_other_hclk_clkdiv2(BelId clkdiv2_bel) const;
+    BelId get_other_hclk_clkdiv(BelId clkdiv_bel) const;
+    BelId get_clkdiv2_for_clkdiv(BelId clkdiv_bel) const;
+    IdStringList get_hclk_id(BelId hclk_bel) const; // use the upper CLKDIV2 (CLKDIV2_0 orCLKDIV2_2) as an id
+
+
     // Find Bels connected to a bound cell
     void find_connected_bels(const CellInfo *cell, IdString port, IdString dest_type, IdString dest_pin, int iter_limit,
                              std::vector<BelId> &candidates);
@@ -123,7 +131,7 @@ struct GowinUtils
         int m_idx = 0;
         for (auto val : int_matching) {
             if (val >= 0) { // elements that are not matched have a value of -1
-                ret_matching[U[idx]] = V[m_idx];
+                ret_matching[U[val]] = V[m_idx];
             }
             m_idx++;
         }
