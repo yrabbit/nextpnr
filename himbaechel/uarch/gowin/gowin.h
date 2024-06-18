@@ -174,7 +174,18 @@ enum
     ALU54D_1_Z = 556 + 3,
     MULTALU18X18_1_Z = 560,
     MULTALU36X18_1_Z = 560 + 1,
-    MULTADDALU18X18_1_Z = 560 + 2
+    MULTADDALU18X18_1_Z = 560 + 2,
+
+    // HCLK Bels
+    CLKDIV2_0_Z = 610,
+    CLKDIV2_1_Z = 611,
+    CLKDIV2_2_Z = 612,
+    CLKDIV2_3_Z = 613,
+
+    CLKDIV_0_Z = 620,
+    CLKDIV_1_Z = 621,
+    CLKDIV_2_Z = 622,
+    CLKDIV_3_Z = 623
 };
 }
 
