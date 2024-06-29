@@ -1324,9 +1324,10 @@ struct GowinPacker
     {
         int num = (bit_width == 9 || bit_width == 18 || bit_width == 36) ? 36 : 32;
         for (int i = 0, j = offset; i < num; ++i, ++j) {
-            if (((i + 1) % 9) == 0 && (bit_width == 16 || bit_width == 32)) {
+            if (((j + 1) % 9) == 0 && (bit_width == 16 || bit_width == 32)) {
                 ++j;
             }
+			log_info("%s->%s\n", ctx->idf(from, i).c_str(ctx), ctx->idf(to, offset ? j % 36 : j).c_str(ctx));
             ci->renamePort(ctx->idf(from, i), ctx->idf(to, offset ? j % 36 : j));
         }
     }
@@ -1513,7 +1514,7 @@ struct GowinPacker
         }
 
         NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
-        NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+        //NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
         for (int i = 0; i < 3; ++i) {
             IdString port = ctx->idf("BLKSEL%d", i);
             ci->addInput(port);
@@ -1523,10 +1524,8 @@ struct GowinPacker
             ci->connectPort(port, vcc_net);
         }
 
-        ci->addInput(id_WRE);
-        ci->connectPort(id_WRE, vss_net);
         ci->addInput(id_WREB);
-        ci->connectPort(id_WREB, vss_net);
+        ci->connectPort(id_WREB, vcc_net);
 
         if (!ci->params.count(id_BIT_WIDTH)) {
             ci->setParam(id_BIT_WIDTH, Property(default_bw, 32));
@@ -1539,9 +1538,16 @@ struct GowinPacker
             ci->copyPortTo(id_OCE, ci, id_OCEB);
             ci->copyPortTo(id_RESET, ci, id_RESETB);
 
-            for (int i = 0; i < 14; ++i) {
-                ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADA%d", i));
-                ci->copyPortTo(ctx->idf("ADA%d", i), ci, ctx->idf("ADB%d", i));
+			// diconnect lower address bits for ROM
+			static int rom_ignore_bits[] = {2, 4, 8, 16, 32};
+			static int romx9_ignore_bits[] = {9, 9, 9, 18, 36};
+            for (unsigned int i = 0; i < 14; ++i) {
+				if (i < sizeof(rom_ignore_bits) && ((ci->type == id_pROM && bit_width >= rom_ignore_bits[i]) || (ci->type == id_pROMX9 && bit_width >= romx9_ignore_bits[i]))) {
+					ci->disconnectPort(ctx->idf("AD[%d]", i));
+				} else {
+					ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADA%d", i));
+					ci->copyPortTo(ctx->idf("ADA%d", i), ci, ctx->idf("ADB%d", i));
+				}
             }
             bsram_rename_ports(ci, bit_width, "DO[%d]", "DO%d");
         } else {
@@ -1552,7 +1558,7 @@ struct GowinPacker
             ci->renamePort(id_RESET, id_RESETB);
 
             ci->addInput(id_CEA);
-            ci->connectPort(id_CEA, vss_net);
+            ci->connectPort(id_CEA, vcc_net);
             for (int i = 0; i < 14; ++i) {
                 ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADB%d", i));
             }
