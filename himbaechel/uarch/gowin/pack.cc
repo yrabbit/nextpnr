@@ -1,6 +1,7 @@
 #include "design_utils.h"
 #include "log.h"
 #include "nextpnr.h"
+#include "util.h"
 
 #define HIMBAECHEL_CONSTIDS "uarch/gowin/constids.inc"
 #include "himbaechel_constids.h"
@@ -1327,7 +1328,6 @@ struct GowinPacker
             if (((j + 1) % 9) == 0 && (bit_width == 16 || bit_width == 32)) {
                 ++j;
             }
-			log_info("%s->%s\n", ctx->idf(from, i).c_str(ctx), ctx->idf(to, offset ? j % 36 : j).c_str(ctx));
             ci->renamePort(ctx->idf(from, i), ctx->idf(to, offset ? j % 36 : j));
         }
     }
@@ -1343,7 +1343,7 @@ struct GowinPacker
         if (bit_width == 32 || bit_width == 36) {
             return;
         }
-        int read_mode = ci->params.at(id_READ_MODE).as_int64();
+        int read_mode = int_or_default(ci->params, id_READ_MODE, 0);
         if (read_mode == 0) {
             return;
         }
@@ -1448,7 +1448,7 @@ struct GowinPacker
         CellInfo *new_ce_net_src = ce_pre_dff;
 
         // add delay register in pipeline mode
-        int read_mode = ci->params.at(id_READ_MODE).as_int64();
+        int read_mode = int_or_default(ci->params, id_READ_MODE, 0);
         if (read_mode) {
             auto ce_pipe_dff_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_ce_pipe_dff$"), id_DFF);
             new_cells.push_back(std::move(ce_pipe_dff_cell));
@@ -1514,7 +1514,7 @@ struct GowinPacker
         }
 
         NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
-        //NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+        NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
         for (int i = 0; i < 3; ++i) {
             IdString port = ctx->idf("BLKSEL%d", i);
             ci->addInput(port);
@@ -1525,7 +1525,6 @@ struct GowinPacker
         }
 
         ci->addInput(id_WREB);
-        ci->connectPort(id_WREB, vcc_net);
 
         if (!ci->params.count(id_BIT_WIDTH)) {
             ci->setParam(id_BIT_WIDTH, Property(default_bw, 32));
@@ -1537,6 +1536,7 @@ struct GowinPacker
             ci->copyPortTo(id_CE, ci, id_CEB);
             ci->copyPortTo(id_OCE, ci, id_OCEB);
             ci->copyPortTo(id_RESET, ci, id_RESETB);
+			ci->connectPort(id_WREB, vcc_net);
 
 			// diconnect lower address bits for ROM
 			static int rom_ignore_bits[] = {2, 4, 8, 16, 32};
@@ -1556,9 +1556,18 @@ struct GowinPacker
             ci->renamePort(id_OCE, id_OCEB);
             ci->renamePort(id_CE, id_CEB);
             ci->renamePort(id_RESET, id_RESETB);
+			ci->connectPort(id_WREB, vss_net);
 
-            ci->addInput(id_CEA);
-            ci->connectPort(id_CEA, vcc_net);
+            ci->addInput(id_CE);
+            ci->connectPort(id_CE, vcc_net);
+			ci->disconnectPort(id_OCEB);
+
+			int read_mode = int_or_default(ci->params, id_READ_MODE, 0);
+			if (read_mode) {
+	            ci->connectPort(id_OCEB, vcc_net);
+			} else {
+				ci->copyPortTo(id_CEB, ci, id_OCEB);
+			}
             for (int i = 0; i < 14; ++i) {
                 ci->renamePort(ctx->idf("AD[%d]", i), ctx->idf("ADB%d", i));
             }
