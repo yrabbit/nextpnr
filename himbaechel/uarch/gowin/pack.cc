@@ -1391,6 +1391,15 @@ struct GowinPacker
             }
             ++idx;
         }
+		switch (idx) {
+			case 1:
+				init |= init << 2; /* fallthrough */
+			case 2:
+				init |= init << 4;
+				break;
+			default:
+				break;
+		}
         lut->setParam(id_INIT, init);
 
         new_cells.push_back(std::move(lut_cell));
@@ -1795,6 +1804,7 @@ struct GowinPacker
 
         int bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
 
+
         // XXX strange WRE<->CE relations
         // Gowin IDE adds two LUTs to the WRE and CE signals. The logic is
         // unclear, but without them effects occur. Perhaps this is a
@@ -1813,6 +1823,16 @@ struct GowinPacker
             bsram_fix_blksel(ci, new_cells);
         }
 
+		// XXX
+		NetInfo *oce_net = ci->getPort(id_OCE);
+		log_info("%p\n", oce_net);
+		if (oce_net == nullptr || oce_net->name == ctx->id("$PACKER_VCC") || oce_net->name == ctx->id("$PACKER_GND")) {
+			if (oce_net != nullptr) {
+				ci->disconnectPort(id_OCE);
+				ci->copyPortTo(id_CE, ci, id_OCE);
+			}
+		}
+
         // XXX UG285-1.3.6_E Gowin BSRAM & SSRAM User Guide:
         // For GW1N-9/GW1NR-9/GW1NS-4 series, 32/36-bit SP/SPX9 is divided into two
         // SP/SPX9s, which occupy two BSRAMs.
@@ -1822,7 +1842,6 @@ struct GowinPacker
             bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
         }
 
-        NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
         for (int i = 0; i < 3; ++i) {
             ci->renamePort(ctx->idf("BLKSEL[%d]", i), ctx->idf("BLKSEL%d", i));
             if (bit_width == 32 || bit_width == 36) {
@@ -1836,6 +1855,8 @@ struct GowinPacker
                 ci->copyPortTo(ctx->idf("AD%d", i), ci, ctx->idf("ADB%d", i));
             }
         }
+
+		NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
         if (bit_width == 32 || bit_width == 36) {
             ci->copyPortTo(id_CLK, ci, id_CLKB);
             ci->copyPortTo(id_OCE, ci, id_OCEB);
