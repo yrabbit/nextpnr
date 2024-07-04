@@ -1825,7 +1825,6 @@ struct GowinPacker
 
         // XXX
         NetInfo *oce_net = ci->getPort(id_OCE);
-        log_info("%p\n", oce_net);
         if (oce_net == nullptr || oce_net->name == ctx->id("$PACKER_VCC") || oce_net->name == ctx->id("$PACKER_GND")) {
             if (oce_net != nullptr) {
                 ci->disconnectPort(id_OCE);
