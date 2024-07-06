@@ -363,7 +363,8 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
                 pin_direction = PinType.INPUT
             elif pin in ["CLKOUT"]:
                 pin_direction = PinType.OUTPUT
-            add_port_wire(tt, this_bel, this_portmap, pin, "HCLK", pin_direction)
+            wire_type = "HCLK_CTRL" if pin in ("CALIB", "RESETN") else "HCLK"
+            add_port_wire(tt, this_bel, this_portmap, pin, wire_type, pin_direction)
 
 
 def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
