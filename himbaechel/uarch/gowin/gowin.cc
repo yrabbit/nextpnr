@@ -304,6 +304,11 @@ void GowinImpl::place_constrained_hclk_cells()
                 continue;
             CellInfo *hclk_driver = hclk_net->driver.cell;
 
+            if (chip.str(ctx)=="GW1N-9C" && hclk_driver->type!=id_CLKDIV2) {
+                //CLKDIV doesn't seem to connect directly to FCLK on this device, and routing is guaranteed to succeed.
+                continue; 
+            }
+
             int alias_count = 0;
             std::set<std::set<BelId>> seen_options;
             for (auto user : hclk_net->users) {
@@ -863,12 +868,22 @@ bool GowinImpl::hclk_valid(BelId bel, IdString bel_type) const
         if (routing_reserved_hclk_sections.count(clkdiv2_bel)) {
             return false;
         }
-        auto clkdiv2_bel_cell = ctx->getBoundBelCell(clkdiv2_bel);
-        if (clkdiv2_bel_cell && clkdiv2_bel_cell->cluster != ctx->getBoundBelCell(bel)->name)
-            return false;
+
         auto other_clkdiv_cell = ctx->getBoundBelCell(gwu.get_other_hclk_clkdiv(bel));
         if (other_clkdiv_cell)
             return false;
+
+        auto clkdiv2_bel_cell = ctx->getBoundBelCell(clkdiv2_bel);
+        if (clkdiv2_bel_cell && clkdiv2_bel_cell->cluster != ctx->getBoundBelCell(bel)->name)
+            return false;
+
+        if (clkdiv2_bel_cell && chip.str(ctx) == "GW1N-9C"){
+            //On the GW1N(R)-9C, it appears that only the 'odd' CLKDIV2 is connected to CLKDIV
+            Loc loc = ctx->getBelLocation(bel);
+            if (loc.z==BelZ::CLKDIV_0_Z || loc.z==BelZ::CLKDIV_2_Z)
+                return false;
+        }
+
         return true;
     }
     return false;
