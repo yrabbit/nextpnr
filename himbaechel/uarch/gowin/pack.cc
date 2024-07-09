@@ -68,7 +68,7 @@ struct GowinPacker
 
     void config_bottom_row(CellInfo &ci, Loc loc, uint8_t cnd = Bottom_io_POD::NORMAL)
     {
-        if (!gwu.have_bottom_io_cnds()) {
+        if (!gwu.has_bottom_io_cnds()) {
             return;
         }
         if (!ci.type.in(id_OBUF, id_TBUF, id_IOBUF)) {
@@ -508,13 +508,13 @@ struct GowinPacker
         make_iob_nets(*out_iob);
     }
 
-    IdString create_aux_name(IdString main_name, int idx = 0)
+    IdString create_aux_name(IdString main_name, int idx = 0, const char *str_suffix = "_aux$")
     {
         std::string sfx("");
         if (idx) {
             sfx = std::to_string(idx);
         }
-        return ctx->id(main_name.str(ctx) + std::string("_aux$") + sfx);
+        return ctx->id(main_name.str(ctx) + std::string(str_suffix) + sfx);
     }
 
     BelId get_aux_iologic_bel(const CellInfo &ci)
@@ -1331,22 +1331,237 @@ struct GowinPacker
         }
     }
 
-    // If the memory is controlled by the CE, then it is logical for the OCE to
-    // also respond to this signal, unless the OCE is controlled separately.
-    void bsram_handle_sp_oce(CellInfo *ci, IdString ce_pin, IdString oce_pin)
+    // We solve the BLKSEL problems that are observed on some chips by
+    // connecting the BLKSEL ports to constant networks so that this BSRAM will
+    // be selected, the actual selection is made by manipulating the Clock
+    // Enable pin using a LUT-based decoder.
+    void bsram_fix_blksel(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
     {
-        const NetInfo *net = ci->getPort(oce_pin);
-        NPNR_ASSERT(ci->getPort(ce_pin) != nullptr);
-        if (net == nullptr || net->name == ctx->id("$PACKER_VCC") || net->name == ctx->id("$PACKER_GND")) {
-            if (net != nullptr) {
-                ci->disconnectPort(oce_pin);
+        // is BSRAM enabled
+        NetInfo *ce_net = ci->getPort(id_CE);
+        if (ce_net == nullptr || ce_net->name == ctx->id("$PACKER_GND")) {
+            return;
+        }
+
+        // port name, BLK_SEL parameter for this port
+        std::vector<std::pair<IdString, int>> dyn_blksel;
+
+        int blk_sel_parameter = ci->params.at(id_BLK_SEL).as_int64();
+        for (int i = 0; i < 3; ++i) {
+            IdString pin_name = ctx->idf("BLKSEL[%d]", i);
+            NetInfo *net = ci->getPort(pin_name);
+            if (net == nullptr || net->name == ctx->id("$PACKER_GND") || net->name == ctx->id("$PACKER_VCC")) {
+                continue;
             }
-            ci->copyPortTo(ce_pin, ci, oce_pin);
+            dyn_blksel.push_back(std::make_pair(pin_name, (blk_sel_parameter >> i) & 1));
         }
+
+        if (dyn_blksel.empty()) {
+            return;
+        }
+
         if (ctx->verbose) {
-            log_info("%s: %s = %s = %s\n", ctx->nameOf(ci), ce_pin.c_str(ctx), oce_pin.c_str(ctx),
-                     ctx->nameOf(ci->getPort(oce_pin)));
+            log_info("  apply the BSRAM BLKSEL fix\n");
         }
+
+        // Make a decoder
+        auto lut_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_blksel_lut$"), id_LUT4);
+        CellInfo *lut = lut_cell.get();
+        lut->addInput(id_I3);
+        ci->movePortTo(id_CE, lut, id_I3);
+        lut->addOutput(id_F);
+        ci->connectPorts(id_CE, lut, id_F);
+
+        NetInfo *vcc_net = ctx->nets.at(ctx->id("$PACKER_VCC")).get();
+        NetInfo *vss_net = ctx->nets.at(ctx->id("$PACKER_GND")).get();
+
+        // Connected CE to I3 to make it easy to calculate the decoder
+        int init = 0x100; // CE == 0 -->  F = 0
+                          // CE == 1 -->  F = decoder result
+        int idx = 0;
+        for (auto &port : dyn_blksel) {
+            IdString lut_input_name = ctx->idf("I%d", idx);
+            ci->movePortTo(port.first, lut, lut_input_name);
+            if (port.second) {
+                init <<= (1 << idx);
+                ci->connectPort(port.first, vcc_net);
+            } else {
+                ci->connectPort(port.first, vss_net);
+            }
+            ++idx;
+        }
+        lut->setParam(id_INIT, init);
+
+        new_cells.push_back(std::move(lut_cell));
+    }
+
+    // Some chips cannot, for some reason, use internal BSRAM registers to
+    // implement READ_MODE=1'b1 (pipeline) with a word width other than 32 or
+    // 36 bits.
+    // We work around this by adding an external DFF and using BSRAM
+    // as READ_MODE=1'b0 (bypass).
+    void bsram_fix_outreg(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
+    {
+        int bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
+        if (bit_width == 32 || bit_width == 36) {
+            return;
+        }
+        int read_mode = ci->params.at(id_READ_MODE).as_int64();
+        if (read_mode == 0) {
+            return;
+        }
+        NetInfo *ce_net = ci->getPort(id_CE);
+        NetInfo *oce_net = ci->getPort(id_OCE);
+        if (ce_net == nullptr || oce_net == nullptr) {
+            return;
+        }
+        if (ce_net->name == ctx->id("$PACKER_GND") || oce_net->name == ctx->id("$PACKER_GND")) {
+            return;
+        }
+
+        if (ctx->verbose) {
+            log_info("  apply the BSRAM OUTREG fix\n");
+        }
+        ci->setParam(id_READ_MODE, 0);
+        ci->disconnectPort(id_OCE);
+        ci->connectPort(id_OCE, ce_net);
+
+        NetInfo *reset_net = ci->getPort(id_RESET);
+        bool sync_reset = ci->params.at(id_RESET_MODE).as_string() == std::string("SYNC");
+        IdString dff_type = sync_reset ? id_DFFRE : id_DFFCE;
+        IdString reset_port = sync_reset ? id_RESET : id_CLEAR;
+
+        for (int i = 0; i < bit_width; ++i) {
+            IdString do_name = ctx->idf("DO[%d]", i);
+            const NetInfo *net = ci->getPort(do_name);
+            if (net != nullptr) {
+                if (net->users.empty()) {
+                    ci->disconnectPort(do_name);
+                    continue;
+                }
+
+                // create DFF
+                auto cache_dff_cell = gwu.create_cell(create_aux_name(ci->name, i, "_cache_dff$"), dff_type);
+                CellInfo *cache_dff = cache_dff_cell.get();
+                cache_dff->addInput(id_CE);
+                cache_dff->connectPort(id_CE, oce_net);
+
+                cache_dff->addInput(reset_port);
+                cache_dff->connectPort(reset_port, reset_net);
+
+                ci->copyPortTo(id_CLK, cache_dff, id_CLK);
+
+                cache_dff->addOutput(id_Q);
+                ci->movePortTo(do_name, cache_dff, id_Q);
+
+                cache_dff->addInput(id_D);
+                ci->connectPorts(do_name, cache_dff, id_D);
+
+                new_cells.push_back(std::move(cache_dff_cell));
+            }
+        }
+    }
+
+    // Analysis of the images generated by the IDE showed that some components
+    // are being added at the input and output of the BSRAM.  Two LUTs are
+    // added on the WRE and CE inputs (strangely, OCE is not affected), a pair
+    // of LUT-DFFs on each DO output, and one or two flipflops of different
+    // types in the auxiliary network.
+    // The semantics of these additions are unclear, but we can replicate this behavior.
+    //  Fix BSRAM in single port mode.
+    void bsram_fix_sp(CellInfo *ci, std::vector<std::unique_ptr<CellInfo>> &new_cells)
+    {
+        int bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
+
+        if (ctx->verbose) {
+            log_info("  apply the SP fix\n");
+        }
+        // create WRE LUT
+        auto wre_lut_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_wre_lut$"), id_LUT4);
+        CellInfo *wre_lut = wre_lut_cell.get();
+        wre_lut->setParam(id_INIT, 0x8888);
+        ci->movePortTo(id_CE, wre_lut, id_I0);
+        ci->movePortTo(id_WRE, wre_lut, id_I1);
+        wre_lut->addOutput(id_F);
+        ci->connectPorts(id_WRE, wre_lut, id_F);
+
+        // create CE LUT
+        auto ce_lut_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_ce_lut$"), id_LUT4);
+        CellInfo *ce_lut = ce_lut_cell.get();
+        ce_lut->setParam(id_INIT, 0xeeee);
+        wre_lut->copyPortTo(id_I0, ce_lut, id_I0);
+        wre_lut->copyPortTo(id_I1, ce_lut, id_I1);
+        ce_lut->addOutput(id_F);
+        ci->connectPorts(id_CE, ce_lut, id_F);
+
+        // create ce reg
+        int write_mode = ci->params.at(id_WRITE_MODE).as_int64();
+        IdString dff_type = write_mode ? id_DFF : id_DFFR;
+        auto ce_pre_dff_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_ce_pre_dff$"), dff_type);
+        CellInfo *ce_pre_dff = ce_pre_dff_cell.get();
+        ce_pre_dff->addInput(id_D);
+        ce_lut->copyPortTo(id_I0, ce_pre_dff, id_D);
+        ci->copyPortTo(id_CLK, ce_pre_dff, id_CLK);
+        if (dff_type == id_DFFR) {
+            wre_lut->copyPortTo(id_I1, ce_pre_dff, id_RESET);
+        }
+        ce_pre_dff->addOutput(id_Q);
+
+        // new ce src with Q pin (used by output pins, not by BSRAM itself)
+        CellInfo *new_ce_net_src = ce_pre_dff;
+
+        // add delay register in pipeline mode
+        int read_mode = ci->params.at(id_READ_MODE).as_int64();
+        if (read_mode) {
+            auto ce_pipe_dff_cell = gwu.create_cell(create_aux_name(ci->name, 0, "_ce_pipe_dff$"), id_DFF);
+            new_cells.push_back(std::move(ce_pipe_dff_cell));
+            CellInfo *ce_pipe_dff = new_cells.back().get();
+            ce_pipe_dff->addInput(id_D);
+            new_ce_net_src->connectPorts(id_Q, ce_pipe_dff, id_D);
+            ci->copyPortTo(id_CLK, ce_pipe_dff, id_CLK);
+            ce_pipe_dff->addOutput(id_Q);
+            new_ce_net_src = ce_pipe_dff;
+        }
+
+        // used outputs of the BSRAM convert to cached
+        for (int i = 0; i < bit_width; ++i) {
+            IdString do_name = ctx->idf("DO[%d]", i);
+            const NetInfo *net = ci->getPort(do_name);
+            if (net != nullptr) {
+                if (net->users.empty()) {
+                    ci->disconnectPort(do_name);
+                    continue;
+                }
+                // create cache lut
+                auto cache_lut_cell = gwu.create_cell(create_aux_name(ci->name, i, "_cache_lut$"), id_LUT4);
+                CellInfo *cache_lut = cache_lut_cell.get();
+                cache_lut->setParam(id_INIT, 0xcaca);
+                cache_lut->addInput(id_I0);
+                cache_lut->addInput(id_I1);
+                cache_lut->addInput(id_I2);
+                ci->movePortTo(do_name, cache_lut, id_F);
+                ci->connectPorts(do_name, cache_lut, id_I1);
+                new_ce_net_src->connectPorts(id_Q, cache_lut, id_I2);
+
+                // create cache DFF
+                auto cache_dff_cell = gwu.create_cell(create_aux_name(ci->name, i, "_cache_dff$"), id_DFFE);
+                CellInfo *cache_dff = cache_dff_cell.get();
+                cache_dff->addInput(id_CE);
+                cache_dff->addInput(id_D);
+                ci->copyPortTo(id_CLK, cache_dff, id_CLK);
+                new_ce_net_src->connectPorts(id_Q, cache_dff, id_CE);
+                cache_lut->copyPortTo(id_I1, cache_dff, id_D);
+                cache_dff->addOutput(id_Q);
+                cache_dff->connectPorts(id_Q, cache_lut, id_I0);
+
+                new_cells.push_back(std::move(cache_lut_cell));
+                new_cells.push_back(std::move(cache_dff_cell));
+            }
+        }
+
+        new_cells.push_back(std::move(wre_lut_cell));
+        new_cells.push_back(std::move(ce_lut_cell));
+        new_cells.push_back(std::move(ce_pre_dff_cell));
     }
 
     void pack_ROM(CellInfo *ci)
@@ -1432,7 +1647,6 @@ struct GowinPacker
             ci->renamePort(ctx->idf("BLKSELB[%d]", i), ctx->idf("BLKSELB%d", i));
         }
 
-        bsram_handle_sp_oce(ci, id_CEB, id_OCE);
         ci->copyPortTo(id_OCE, ci, id_OCEB);
 
         // Port A
@@ -1565,13 +1779,30 @@ struct GowinPacker
         }
 
         int bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
-        bsram_handle_sp_oce(ci, id_CE, id_OCE);
+
+        // XXX strange WRE<->CE relations
+        // Gowin IDE adds two LUTs to the WRE and CE signals. The logic is
+        // unclear, but without them effects occur. Perhaps this is a
+        // correction of some BSRAM defects.
+        if (gwu.need_SP_fix()) {
+            bsram_fix_sp(ci, new_cells);
+        }
+
+        // Some chips have faulty output registers
+        if (gwu.need_BSRAM_OUTREG_fix()) {
+            bsram_fix_outreg(ci, new_cells);
+        }
+
+        // Some chips have problems with BLKSEL ports
+        if (gwu.need_BLKSEL_fix()) {
+            bsram_fix_blksel(ci, new_cells);
+        }
 
         // XXX UG285-1.3.6_E Gowin BSRAM & SSRAM User Guide:
         // For GW1N-9/GW1NR-9/GW1NS-4 series, 32/36-bit SP/SPX9 is divided into two
         // SP/SPX9s, which occupy two BSRAMs.
         // So divide it here
-        if ((bit_width == 32 || bit_width == 36) && !gwu.have_SP32()) {
+        if ((bit_width == 32 || bit_width == 36) && !gwu.has_SP32()) {
             divide_sp(ci, new_cells);
             bit_width = ci->params.at(id_BIT_WIDTH).as_int64();
         }
@@ -2609,6 +2840,41 @@ struct GowinPacker
     }
 
     // ===================================
+    // Global power regulator
+    // ===================================
+    void pack_bandgap(void)
+    {
+        if (!gwu.has_BANDGAP()) {
+            return;
+        }
+        log_info("Pack BANDGAP...\n");
+
+        bool user_bandgap = false;
+        for (auto &cell : ctx->cells) {
+            auto &ci = *cell.second;
+
+            if (ci.type == id_BANDGAP) {
+                user_bandgap = true;
+                break;
+            }
+        }
+        if (!user_bandgap) {
+            // make default BANDGAP
+            auto bandgap_cell = std::make_unique<CellInfo>(ctx, id_BANDGAP, id_BANDGAP);
+            bandgap_cell->addInput(id_BGEN);
+            bandgap_cell->connectPort(id_BGEN, ctx->nets.at(ctx->id("$PACKER_VCC")).get());
+            ctx->cells[bandgap_cell->name] = std::move(bandgap_cell);
+        }
+        if (ctx->verbose) {
+            if (user_bandgap) {
+                log_info("Have user BANDGAP\n");
+            } else {
+                log_info("No user BANDGAP. Make one.\n");
+            }
+        }
+    }
+
+    // ===================================
     // Replace INV with LUT
     // ===================================
     void pack_inv(void)
@@ -2760,7 +3026,7 @@ struct GowinPacker
         pack_hclk();
         ctx->check(); 
 
-        pack_inv();
+        pack_bandgap();
         ctx->check();
 
         pack_wideluts();
@@ -2783,6 +3049,9 @@ struct GowinPacker
         ctx->check();
 
         pack_dsp();
+        ctx->check();
+
+        pack_inv();
         ctx->check();
 
         pack_buffered_nets();

@@ -498,6 +498,7 @@ void GowinImpl::prePlace()
 
 void GowinImpl::postPlace()
 {
+    gwu.has_SP32();
     if (ctx->debug) {
         log_info("================== Final Placement ===================\n");
         for (auto &cell : ctx->cells) {

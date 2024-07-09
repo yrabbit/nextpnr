@@ -95,7 +95,7 @@ bool GowinUtils::is_diff_io_supported(IdString type)
     return false;
 }
 
-bool GowinUtils::have_bottom_io_cnds(void)
+bool GowinUtils::has_bottom_io_cnds(void)
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->bottom_io.conditions.size() != 0;
@@ -113,10 +113,34 @@ IdString GowinUtils::get_bottom_io_wire_b_net(int8_t condition)
     return IdString(extra->bottom_io.conditions[condition].wire_b_net);
 }
 
-bool GowinUtils::have_SP32(void)
+bool GowinUtils::has_BANDGAP(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::HAS_BANDGAP;
+}
+
+bool GowinUtils::has_SP32(void)
 {
     const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
     return extra->chip_flags & Extra_chip_data_POD::HAS_SP32;
+}
+
+bool GowinUtils::need_SP_fix(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::NEED_SP_FIX;
+}
+
+bool GowinUtils::need_BSRAM_OUTREG_fix(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::NEED_BSRAM_OUTREG_FIX;
+}
+
+bool GowinUtils::need_BLKSEL_fix(void)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    return extra->chip_flags & Extra_chip_data_POD::NEED_BLKSEL_FIX;
 }
 
 std::unique_ptr<CellInfo> GowinUtils::create_cell(IdString name, IdString type)
