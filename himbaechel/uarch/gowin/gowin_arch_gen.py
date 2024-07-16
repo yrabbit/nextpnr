@@ -49,6 +49,8 @@ VCC_Z   = 277
 GND_Z   = 278
 BANDGAP_Z = 279
 
+DHCEN_Z = 288 # : 298
+
 DSP_Z          = 509
 
 DSP_0_Z        = 511 # DSP macro 0
@@ -146,12 +148,31 @@ class BottomIO(BBAStruct):
     def serialise(self, context: str, bba: BBAWriter):
         bba.slice(f"{context}_conditions", len(self.conditions))
 
+# wire -> bel for DHCEN bels
+@dataclass
+class WireBel(BBAStruct):
+    wire_xy: IdString
+    wire_name: IdString
+    bel_x: int
+    bel_y: int
+    bel_z: int
+
+    def serialise_lists(self, context: str, bba: BBAWriter):
+        pass
+    def serialise(self, context: str, bba: BBAWriter):
+        bba.u32(self.wire_xy.index)
+        bba.u32(self.wire_name.index)
+        bba.u32(self.bel_x)
+        bba.u32(self.bel_y)
+        bba.u32(self.bel_z)
+
 @dataclass
 class ChipExtraData(BBAStruct):
     strs: StringPool
     flags: int
     bottom_io: BottomIO
     diff_io_types: list[IdString] = field(default_factory = list)
+    dhcen_bels: list[WireBel] = field(default_factory = list)
 
     def create_bottom_io(self):
         self.bottom_io = BottomIO()
@@ -162,16 +183,23 @@ class ChipExtraData(BBAStruct):
     def add_diff_io_type(self, diff_type: str):
         self.diff_io_types.append(self.strs.id(diff_type))
 
+    def add_dhcen_bel(self, wire_xy: str, wire_name: str, x: int, y: int, z: int):
+        self.dhcen_bels.append(WireBel(self.strs.id(wire_xy), self.strs.id(wire_name), x, y, z))
+
     def serialise_lists(self, context: str, bba: BBAWriter):
         self.bottom_io.serialise_lists(f"{context}_bottom_io", bba)
         bba.label(f"{context}_diff_io_types")
         for i, diff_io_type in enumerate(self.diff_io_types):
             bba.u32(diff_io_type.index)
+        bba.label(f"{context}_dhcen_bels")
+        for i, t in enumerate(self.dhcen_bels):
+            t.serialise(f"{context}_dhcen_bel{i}", bba)
 
     def serialise(self, context: str, bba: BBAWriter):
         bba.u32(self.flags)
         self.bottom_io.serialise(f"{context}_bottom_io", bba)
         bba.slice(f"{context}_diff_io_types", len(self.diff_io_types))
+        bba.slice(f"{context}_dhcen_bels", len(self.dhcen_bels))
 
 @dataclass
 class PadExtraData(BBAStruct):
@@ -330,7 +358,7 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             if not tt.has_wire(src):
                 tt.create_wire(src, "HCLK")
             tt.create_pip(src, dst)
-    
+
     hclk_bel_zs = {
         "CLKDIV2_HCLK0_SECT0": CLKDIV2_0_Z,
         "CLKDIV2_HCLK0_SECT1": CLKDIV2_1_Z,
@@ -341,7 +369,7 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         "CLKDIV_HCLK1_SECT0": CLKDIV_2_Z,
         "CLKDIV_HCLK1_SECT1": CLKDIV_3_Z
     }
-   
+
     for bel_name, bel_props in db.grid[y][x].bels.items():
         if (bel_name not in hclk_bel_zs):
             continue
@@ -353,7 +381,7 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             bel_type = "CLKDIV"
         this_bel = tt.create_bel(bel_name, bel_type, hclk_bel_zs[bel_name])
 
-        if (bel_name in ["CLKDIV_HCLK0_SECT1", "CLKDIV_HCLK1_SECT1"]): 
+        if (bel_name in ["CLKDIV_HCLK0_SECT1", "CLKDIV_HCLK1_SECT1"]):
             this_bel.flags |= BEL_FLAG_HIDDEN
         if bel_type=="CLKDIV":
             this_bel.flags |= BEL_FLAG_GLOBAL
@@ -371,6 +399,8 @@ def create_hclk_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
             wire_type = "HCLK_CTRL" if pin in ("CALIB", "RESETN") else "HCLK"
             add_port_wire(tt, this_bel, this_portmap, pin, wire_type, pin_direction)
 
+# map HCLKIN wire -> dhcen bel
+dhcen_bels = {}
 
 def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
     if (y, x) not in db.extra_func:
@@ -397,6 +427,16 @@ def create_extra_funcs(tt: TileType, db: chipdb, x: int, y: int):
             tt.create_wire(wire, "BGEN")
             bel = tt.create_bel("BANDGAP", "BANDGAP", z = BANDGAP_Z)
             tt.add_bel_pin(bel, "BGEN", wire, PinType.INPUT)
+        elif func == 'dhcen':
+            for idx, dhcen in enumerate(desc):
+                wire = dhcen['ce']
+                if not tt.has_wire(wire):
+                    tt.create_wire(wire)
+                bel_z = DHCEN_Z + idx
+                bel = tt.create_bel(f"DHCEN{idx}", "DHCEN", z = bel_z)
+                tt.add_bel_pin(bel, "CE", wire, PinType.INPUT)
+                wire_xy, wire_name = dhcen['hclkin']
+                dhcen_bels[wire_xy, wire_name] = (x, y, bel_z)
         if func == 'io16':
             role = desc['role']
             if role == 'MAIN':
@@ -1057,6 +1097,9 @@ def create_extra_data(chip: Chip, db: chipdb, chip_flags: int):
         chip.extra_data.add_bottom_io_cnd(net_a, net_b)
     for diff_type in db.diff_io_types:
         chip.extra_data.add_diff_io_type(diff_type)
+    # create hclk wire->dhcen bel map
+    for wire, bel in dhcen_bels.items():
+        chip.extra_data.add_dhcen_bel(wire[0], wire[1], bel[0], bel[1], bel[2])
 
 def main():
     parser = argparse.ArgumentParser(description='Make Gowin BBA')

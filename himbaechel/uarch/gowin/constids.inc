@@ -1213,3 +1213,4 @@ X(RESETN)
 //HCLK Parameters
 X(DIV_MODE)
 X(GSREN)
+X(DHCEN)

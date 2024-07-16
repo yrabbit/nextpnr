@@ -33,6 +33,7 @@ struct GowinUtils
     bool is_simple_io_bel(BelId bel);
     Loc get_pair_iologic_bel(Loc loc);
     BelId get_io_bel_from_iologic(BelId bel);
+	BelId get_dhcen_bel(WireId hclkin_iwire);
 
     // BSRAM
     bool has_SP32(void);

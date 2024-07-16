@@ -65,6 +65,19 @@ BelId GowinUtils::get_pll_bel(BelId io_bel, IdString type)
     return BelId();
 }
 
+BelId GowinUtils::get_dhcen_bel(WireId hclkin_wire)
+{
+    const Extra_chip_data_POD *extra = reinterpret_cast<const Extra_chip_data_POD *>(ctx->chip_info->extra_data.get());
+    for (auto &wire_bel : extra->dhcen_bels) {
+		IdStringList wire_name = IdStringList::concat(IdString(wire_bel.wire_xy), IdString(wire_bel.wire_name));
+		WireId wire = ctx->getWireByName(wire_name); // The name may not match in the case of a node, so we get the Id by name for comparison
+        if (wire == hclkin_wire) {
+            return ctx->getBelByLocation(Loc(wire_bel.bel_x, wire_bel.bel_y, wire_bel.bel_z));
+        }
+    }
+    return BelId();
+}
+
 bool GowinUtils::is_simple_io_bel(BelId bel)
 {
     return chip_bel_info(ctx->chip_info, bel).flags & BelFlags::FLAG_SIMPLE_IO;
