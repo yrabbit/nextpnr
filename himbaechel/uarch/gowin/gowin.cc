@@ -886,22 +886,6 @@ void GowinImpl::create_passthrough_luts(void)
 
                 ctx->bindBel(lut_bel, lut, PlaceStrength::STRENGTH_LOCKED);
                 new_cells.push_back(std::move(lut_cell));
-            } else {
-                // If flipflop happens to be near lut/alu, then we can
-                // remove the incoming network to port D
-                const auto &ff_data = fast_cell_info.at(ci->flat_index);
-                const NetInfo *src;
-                if (lut) {
-                    src = fast_cell_info.at(lut->flat_index).lut_f;
-                } else {
-                    src = fast_cell_info.at(alu->flat_index).alu_sum;
-                }
-                if (ff_data.ff_d == src) {
-                    ci->disconnectPort(id_D);
-                    if (ctx->debug) {
-                        log_info("disconnect the D input of %s\n", ctx->nameOf(ci));
-                    }
-                }
             }
         }
     }
