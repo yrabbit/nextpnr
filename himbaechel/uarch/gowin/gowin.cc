@@ -179,9 +179,7 @@ void GowinImpl::init(Context *ctx)
         spd = ctx->id(match[2]);
         ctx->set_speed_grade(match[2]);
     } else {
-		log("%s\n", pn.c_str());
         if (pn.length() > 2 && pn.compare(pn.length() - 3, 2, "ES")) {
-			log("%s\n", pn.c_str());
             package_idx = ctx->id(pn);
             spd = ctx->id("ES");
             ctx->set_speed_grade("ES");
@@ -190,8 +188,8 @@ void GowinImpl::init(Context *ctx)
 
     log_info("search for %s, packages:%ld\n", package_idx.c_str(ctx), ctx->chip_info->packages.ssize());
     for (int i = 0; i < ctx->chip_info->packages.ssize(); ++i) {
+        log_info("i:%d %s\n", i, package_idx.c_str(ctx));
         if (IdString(ctx->chip_info->packages[i].name) == package_idx) {
-            log_info("i:%d %s\n", i, package_idx.c_str(ctx));
             ctx->package_info = &ctx->chip_info->packages[i];
             break;
         }
