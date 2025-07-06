@@ -180,7 +180,7 @@ void GowinImpl::init(Context *ctx)
         ctx->set_speed_grade(match[2]);
     } else {
         if (pn.length() > 2 && pn.compare(pn.length() - 3, 2, "ES")) {
-            package_idx = ctx->id(pn);
+			package_idx = ctx->id(pn.substr(0, pn.length() - 2));
             spd = ctx->id("ES");
             ctx->set_speed_grade("ES");
         }

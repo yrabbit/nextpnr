@@ -468,10 +468,8 @@ def create_nodes(chip: Chip, db: chipdb):
         min_wire_name_len = 0
         if node:
             min_wire_name_len = len(next(iter(node))[2])
-        print(node)
         for y, x, wire in node:
             if wire_type:
-                print(f'y:{y}, x:{x}, wire:{wire}')
                 if not chip.tile_type_at(x, y).has_wire(wire):
                     chip.tile_type_at(x, y).create_wire(wire, wire_type)
                 else:
@@ -520,7 +518,6 @@ def create_switch_matrix(tt: TileType, db: chipdb, x: int, y: int):
         for src in srcs.keys():
             if not tt.has_wire(src):
                 tt.create_wire(src, "GLOBAL_CLK")
-            print(f"({y}, {x}) {dst}<-{src}")
             src_tm_class = get_tm_class(db, src)
             tt.create_pip(src, dst, src_tm_class)
 
@@ -1361,6 +1358,7 @@ def create_packages(chip: Chip, db: chipdb):
     for partno_spd, partdata in db.packages.items():
         pkgname, variant, spd = partdata
         partno = partno_spd.removesuffix(spd) # drop SPEED like 'C7/I6'
+        print(partno_spd, partno)
         if partno in created_pkgs:
             continue
         created_pkgs.add(partno)
@@ -1436,7 +1434,6 @@ def create_timing_info(chip: Chip, db: chipdb.Device):
 
     for speed, groups in db.timing.items():
         for group, arc in groups.items():
-            print(speed, group, arc)
             if group == "lut":
                 lut = tmg.add_cell_variant(speed, "LUT4")
                 lut.add_comb_arc("I0", "F", group_to_timingvalue(arc["a_f"]))
