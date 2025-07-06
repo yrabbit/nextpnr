@@ -129,15 +129,19 @@ void GowinImpl::init_database(Arch *arch)
         if (GW2) {
             log_error("For the GW2A series you need to specify --vopt family=GW2A-18 or --vopt family=GW2A-18C\n");
         } else {
-            std::regex devicere = std::regex("GW1N([SZ]?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
-            std::smatch match;
-            if (!std::regex_match(args.device, match, devicere)) {
-                log_error("Invalid device %s\n", args.device.c_str());
-            }
-            family = stringf("GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
-            if (family.rfind("GW1N-9", 0) == 0) {
-                log_error("For the GW1N-9 series you need to specify --vopt family=GW1N-9 or --vopt family=GW1N-9C\n");
-            }
+			if (args.device.rfind("GW5A", 0) == 0) {
+				family = "GW5A-25A";
+			} else {
+				std::regex devicere = std::regex("GW1N([SZ]?)[A-Z]*-(LV|UV|UX)([0-9])(C?).*");
+				std::smatch match;
+				if (!std::regex_match(args.device, match, devicere)) {
+					log_error("Invalid device %s\n", args.device.c_str());
+				}
+				family = stringf("GW1N%s-%s", match[1].str().c_str(), match[3].str().c_str());
+				if (family.rfind("GW1N-9", 0) == 0) {
+					log_error("For the GW1N-9 series you need to specify --vopt family=GW1N-9 or --vopt family=GW1N-9C\n");
+				}
+			}
         }
     }
 
