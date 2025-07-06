@@ -179,6 +179,7 @@ void GowinImpl::init(Context *ctx)
         spd = ctx->id(match[2]);
         ctx->set_speed_grade(match[2]);
     } else {
+		log("%s\n", pn.c_str());
         if (pn.length() > 2 && pn.compare(pn.length() - 2, 2, "ES")) {
 			log("%s\n", pn.c_str());
             package_idx = ctx->id(pn);
