@@ -188,7 +188,7 @@ void GowinImpl::init(Context *ctx)
 
     log_info("search for %s, packages:%ld\n", package_idx.c_str(ctx), ctx->chip_info->packages.ssize());
     for (int i = 0; i < ctx->chip_info->packages.ssize(); ++i) {
-        log_info("i:%d %s\n", i, package_idx.c_str(ctx));
+        log_info("i:%d %s\n", i, IdString(ctx->chip_info->packages[i].name.c_str(ctx));
         if (IdString(ctx->chip_info->packages[i].name) == package_idx) {
             ctx->package_info = &ctx->chip_info->packages[i];
             break;
