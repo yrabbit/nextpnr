@@ -75,7 +75,7 @@ struct GowinGlobalRouter
         } else {
             res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
         }
-        if (ctx->debug && false /*&& res*/) {
+        if (ctx->debug ) {
             log_info("%s <- %s [%s <- %s]\n", ctx->nameOfWire(ctx->getPipDstWire(pip)),
                      ctx->nameOfWire(ctx->getPipSrcWire(pip)), dst_type.c_str(ctx), src_type.c_str(ctx));
             log_info("  res:%d, src_valid:%d, dst_valid:%d, src local:%d, dst local:%d\n", res, src_valid, dst_valid,
