@@ -376,7 +376,7 @@ created_tiletypes = {}
 
 # get timing class by wire name
 def get_tm_class(db: chipdb, wire: str):
-    if wire not in db_wire_delay:
+    if wire not in db.wire_delay:
         print(f"{wire} is not in wire_delay")
         return "X08"
     assert wire in db.wire_delay, f"Unknown timing class for {wire}"
