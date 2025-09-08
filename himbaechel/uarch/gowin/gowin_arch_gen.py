@@ -1314,13 +1314,6 @@ def create_dsp_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc
     return tt
 
 # PLL main tile
-_pll_inputs = {'CLKFB', 'FBDSEL0', 'FBDSEL1', 'FBDSEL2', 'FBDSEL3',
-        'FBDSEL4', 'FBDSEL5', 'IDSEL0', 'IDSEL1', 'IDSEL2', 'IDSEL3',
-        'IDSEL4', 'IDSEL5', 'ODSEL0', 'ODSEL1', 'ODSEL2', 'ODSEL3',
-        'ODSEL4', 'ODSEL5', 'RESET', 'RESET_P', 'PSDA0', 'PSDA1',
-        'PSDA2', 'PSDA3', 'DUTYDA0', 'DUTYDA1', 'DUTYDA2', 'DUTYDA3',
-        'FDLY0', 'FDLY1', 'FDLY2', 'FDLY3', 'CLKIN', 'VREN'}
-_pll_outputs = {'CLKOUT', 'LOCK', 'CLKOUTP', 'CLKOUTD', 'CLKOUTD3'}
 def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc: TypeDesc):
     typename = "PLL"
     tiletype = f"{typename}_{ttyp}"
@@ -1337,25 +1330,29 @@ def create_pll_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, tdesc
     tt = chip.create_tile_type(tiletype)
     tt.extra_data = TileExtraData(chip.strs.id(typename))
 
-
     # wires
-    if chip.name == 'GW1NS-4':
-        pll_name = 'PLLVR'
-        bel_type = 'PLLVR'
-    else:
-        pll_name = 'RPLLA'
-        bel_type = 'rPLL'
+    if hasattr(db, 'PLL_description'):
+        pll_name = db.PLL_description['bel_name']
+        bel_type = db.PLL_description['bel_type']
+        pll_outputs = db.PLL_description['outputs']
+    else:# XXX Left for compatibility. Will be removed when there are no older versions of apicula left in the wild.
+        pll_outputs = {'CLKOUT', 'LOCK', 'CLKOUTP', 'CLKOUTD', 'CLKOUTD3'}
+        if chip.name == 'GW1NS-4':
+            pll_name = 'PLLVR'
+            bel_type = 'PLLVR'
+        else:
+            pll_name = 'RPLLA'
+            bel_type = 'rPLL'
     portmap = db.grid[y][x].bels[pll_name].portmap
     pll = tt.create_bel("PLL", bel_type, z = PLL_Z)
     pll.flags = BEL_FLAG_GLOBAL
     for pin, wire in portmap.items():
-        if pin in _pll_inputs:
-            tt.create_wire(wire, "PLL_I")
-            tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
-        else:
-            assert pin in _pll_outputs, f"Unknown PLL pin {pin}"
+        if pin in pll_outputs:
             tt.create_wire(wire, "PLL_O")
             tt.add_bel_pin(pll, pin, wire, PinType.OUTPUT)
+        else:
+            tt.create_wire(wire, "PLL_I")
+            tt.add_bel_pin(pll, pin, wire, PinType.INPUT)
     tdesc.tiletype = tiletype
     return tt
 

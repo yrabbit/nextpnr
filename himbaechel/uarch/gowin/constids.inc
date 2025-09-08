@@ -1033,6 +1033,7 @@ X(OSCO)
 X(rPLL)
 X(RPLLA)
 X(PLLVR)
+X(PLLA)
 
 // primitive attributes
 X(INIT)
