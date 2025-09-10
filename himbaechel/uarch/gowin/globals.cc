@@ -82,7 +82,7 @@ struct GowinGlobalRouter
         bool res;
         if (src == src_wire && (src_type == id_PLL_O || (!src_is_outpin))) {
             bool dst_is_spine = dst_name.str(ctx).rfind("SPINE", 0) == 0;
-            res = src_valid && dst_is_spine;
+            res = src_valid && (dst_is_spine || dst_type == id_PLL_O);
         } else {
             res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
         }
