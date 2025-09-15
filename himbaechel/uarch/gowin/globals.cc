@@ -77,7 +77,7 @@ struct GowinGlobalRouter
         IdString dst_type = ctx->getWireType(dst);
         bool src_is_outpin = src_type.in(id_IO_O, id_PLL_O, id_HCLK, id_DLLDLY, id_OSCOUT);
         bool src_valid = not_dcs_pip && (src_type == id_GLOBAL_CLK || src_is_outpin);
-        bool dst_valid = not_dcs_pip && dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
+        bool dst_valid = not_dcs_pip && dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_PLL_O, id_IO_I, id_HCLK);
 
         bool res;
         if (src == src_wire && (src_type == id_PLL_O || (!src_is_outpin))) {
