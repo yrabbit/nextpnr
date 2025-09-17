@@ -136,8 +136,7 @@ void GateMatePacker::pack_bufg()
                         int index = pad_info->flags - 1;
                         die = uarch->tile_extra_data(in_net->driver.cell->bel.tile)->die;
                         if (!clkin[die]->getPort(ctx->idf("CLK%d", index))) {
-                            CellInfo *gpio = in_net->driver.cell->getPort(id_GPIO_IN)->driver.cell;
-                            clkin[die]->connectPort(ctx->idf("CLK%d", index), gpio->getPort(id_I));
+                            clkin[die]->connectPort(ctx->idf("CLK%d", index), in_net->driver.cell->getPort(id_Y));
                         }
                     }
                 }
@@ -264,24 +263,7 @@ void GateMatePacker::pll_out(CellInfo *cell, IdString origPort, Loc fixed)
     }
 }
 
-void GateMatePacker::insert_bufg(CellInfo *cell, IdString port)
-{
-    NetInfo *clk = cell->getPort(port);
-    if (clk) {
-        if (!(clk->users.entries() == 1 && (*clk->users.begin()).cell->type == id_CC_BUFG)) {
-            CellInfo *bufg =
-                    create_cell_ptr(id_CC_BUFG, ctx->idf("%s$BUFG_%s", cell->name.c_str(ctx), port.c_str(ctx)));
-            cell->movePortTo(port, bufg, id_O);
-            cell->addOutput(port);
-            NetInfo *net = ctx->createNet(ctx->idf("%s", bufg->name.c_str(ctx)));
-            cell->connectPort(port, net);
-            bufg->connectPort(id_I, net);
-            log_info("    Added BUFG for cell '%s' signal %s\n", cell->name.c_str(ctx), port.c_str(ctx));
-        }
-    }
-}
-
-void GateMatePacker::insert_pll_bufg()
+void GateMatePacker::insert_clocking()
 {
     log_info("Insert clocking cells..\n");
     for (int i = 0; i < uarch->dies; i++) {
@@ -294,26 +276,12 @@ void GateMatePacker::insert_pll_bufg()
         BelId glbout_bel = ctx->getBelByLocation(fixed_loc);
         ctx->bindBel(glbout_bel, glbout.back(), PlaceStrength::STRENGTH_FIXED);
     }
-    log_info("Insert BUFGs for PLLs..\n");
-    std::vector<CellInfo *> cells;
-    for (auto &cell : ctx->cells) {
-        CellInfo &ci = *cell.second;
-        if (!ci.type.in(id_CC_PLL, id_CC_PLL_ADV))
-            continue;
-        cells.push_back(&ci);
-    }
-    for (auto &cell : cells) {
-        insert_bufg(cell, id_CLK0);
-        insert_bufg(cell, id_CLK90);
-        insert_bufg(cell, id_CLK180);
-        insert_bufg(cell, id_CLK270);
-    }
 }
 
 void GateMatePacker::remove_clocking()
 {
     log_info("Remove unused clocking cells..\n");
-    auto remove_unused_cells = [&](std::vector<CellInfo *> &cells, const char *type) {
+    auto remove_unused_cells = [&](std::vector<CellInfo *> &cells) {
         for (auto cell : cells) {
             bool used = false;
             for (auto port : cell->ports) {
@@ -330,8 +298,8 @@ void GateMatePacker::remove_clocking()
             }
         }
     };
-    remove_unused_cells(clkin, "CLKIN");
-    remove_unused_cells(glbout, "GLBOUT");
+    remove_unused_cells(clkin);
+    remove_unused_cells(glbout);
     flush_cells();
 }
 
@@ -376,15 +344,7 @@ void GateMatePacker::pack_pll()
             }
         }
 
-        ci.cluster = ci.name;
-        ci.constr_abs_z = true;
-        ci.constr_z = 2 + pll_index[die]; // Position to a proper Z location
-
-        Loc fixed_loc = uarch->locations[std::make_pair(ctx->idf("PLL%d", pll_index[die]), die)];
-        BelId pll_bel = ctx->getBelByLocation(fixed_loc);
-        ctx->bindBel(pll_bel, &ci, PlaceStrength::STRENGTH_FIXED);
-
-        if (pll_index[die] > 4)
+        if (pll_index[die] >= 4)
             log_error("Used more than available PLLs.\n");
 
         if (ci.getPort(id_CLK_REF) == nullptr && ci.getPort(id_USR_CLK_REF) == nullptr)
@@ -392,6 +352,14 @@ void GateMatePacker::pack_pll()
 
         if (ci.getPort(id_CLK_REF) != nullptr && ci.getPort(id_USR_CLK_REF) != nullptr)
             log_error("CLK_REF and USR_CLK_REF are not allowed to be set in same time.\n");
+
+        ci.cluster = ci.name;
+        ci.constr_abs_z = true;
+        ci.constr_z = 2 + pll_index[die]; // Position to a proper Z location
+
+        Loc fixed_loc = uarch->locations[std::make_pair(ctx->idf("PLL%d", pll_index[die]), die)];
+        BelId pll_bel = ctx->getBelByLocation(fixed_loc);
+        ctx->bindBel(pll_bel, &ci, PlaceStrength::STRENGTH_FIXED);
 
         clk = ci.getPort(id_CLK_REF);
         delay_t period = ctx->getDelayFromNS(1.0e9 / ctx->setting<float>("target_freq"));
