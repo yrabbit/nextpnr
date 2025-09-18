@@ -150,7 +150,7 @@ struct GowinGlobalRouter
         bool src_valid = ((!src_is_spine) && src_type.in(id_GLOBAL_CLK, id_IO_O, id_PLL_O, id_HCLK)) ||
                          src_name.in(id_SPINE6, id_SPINE7, id_SPINE14, id_SPINE15, id_SPINE22, id_SPINE23, id_SPINE30,
                                      id_SPINE31);
-        bool dst_valid = dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_IO_I, id_HCLK);
+        bool dst_valid = dst_type.in(id_GLOBAL_CLK, id_TILE_CLK, id_PLL_I, id_PLL_O, id_IO_I, id_HCLK);
 
         bool res = (src_valid && dst_valid) || (src_valid && is_local(dst_type)) || (is_local(src_type) && dst_valid);
         if (ctx->debug && false /*&& res*/) {
@@ -207,6 +207,7 @@ struct GowinGlobalRouter
                 if (!pip_filter(pip, src)) {
                     continue;
                 }
+
                 // Add to the queue
                 visit.push(prev);
                 backtrace[prev] = pip;
@@ -449,7 +450,7 @@ struct GowinGlobalRouter
             }
             WireId dst = ctx->getPipDstWire(pip);
             IdString dst_name = ctx->getWireName(dst)[1];
-            if (dst_name.str(ctx).rfind("PCLK", 0) == 0 || dst_name.str(ctx).rfind("LWSPINE", 0) == 0) {
+            if (dst_name.str(ctx).rfind("PCLK", 0) == 0 || dst_name.str(ctx).rfind("LWSPINE", 0) == 0 || dst_name.str(ctx).rfind("PLL") == 0) {
                 // step over dummy pip
                 for (PipId next_pip : ctx->getPipsDownhill(dst)) {
                     if (ctx->getBoundPipNet(next_pip) != nullptr) {
