@@ -400,6 +400,8 @@ struct GowinGlobalRouter
 
     void route_dcs_net(NetInfo *net)
     {
+        IdString dcs_clock_input_prefix = gwu.get_dcs_prefix();
+        const char *dcs_clock_input_prefix_str = dcs_clock_input_prefix.c_str(ctx);
         // Since CLKOUT is responsible for only one quadrant, we will do
         // routing not from it, but from any CLK0-3 input actually connected to
         // the clock source.
@@ -407,7 +409,7 @@ struct GowinGlobalRouter
         NetInfo *net_before_dcs;
         PortRef driver;
         for (int i = 0; i < 4; ++i) {
-            net_before_dcs = dcs_ci->getPort(ctx->idf("CLK%d", i));
+            net_before_dcs = dcs_ci->getPort(ctx->idf("%s%d", dcs_clock_input_prefix_str, i));
             if (net_before_dcs == nullptr) {
                 continue;
             }
@@ -450,7 +452,8 @@ struct GowinGlobalRouter
             }
             WireId dst = ctx->getPipDstWire(pip);
             IdString dst_name = ctx->getWireName(dst)[1];
-            if (dst_name.str(ctx).rfind("PCLK", 0) == 0 || dst_name.str(ctx).rfind("LWSPINE", 0) == 0 || dst_name.str(ctx).rfind("PLL") == 0) {
+            if (dst_name.str(ctx).rfind("PCLK", 0) == 0 || dst_name.str(ctx).rfind("LWSPINE", 0) == 0 ||
+                dst_name.str(ctx).rfind("PLL") == 0) {
                 // step over dummy pip
                 for (PipId next_pip : ctx->getPipsDownhill(dst)) {
                     if (ctx->getBoundPipNet(next_pip) != nullptr) {
@@ -499,7 +502,7 @@ struct GowinGlobalRouter
 
             // The input networks must bs same for all hardware dcs.
             dcs_ci->copyPortTo(id_SELFORCE, hw_dcs, id_SELFORCE);
-            dcs_ci->copyPortBusTo(id_CLK, 0, false, hw_dcs, id_CLK, 0, false, 4);
+            dcs_ci->copyPortBusTo(dcs_clock_input_prefix, 0, false, hw_dcs, dcs_clock_input_prefix, 0, false, 4);
             dcs_ci->copyPortBusTo(id_CLKSEL, 0, true, hw_dcs, id_CLKSEL, 0, false, 4);
         }
 
@@ -508,7 +511,7 @@ struct GowinGlobalRouter
         dcs_ci->disconnectPort(id_CLKOUT);
         for (int i = 0; i < 4; ++i) {
             dcs_ci->disconnectPort(ctx->idf("CLKSEL[%d]", i));
-            dcs_ci->disconnectPort(ctx->idf("CLK%d", i));
+            dcs_ci->disconnectPort(ctx->idf("%s%d", dcs_clock_input_prefix_str, i));
         }
         log_info("    '%s' net was routed.\n", ctx->nameOf(net));
         ctx->cells.erase(dcs_ci->name);
