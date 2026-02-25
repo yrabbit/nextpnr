@@ -1077,11 +1077,19 @@ struct NexusPacker
     {
         // Convert primitives from their non-CORE variant to their CORE variant
         static const dict<IdString, IdString> prim_map = {
-                {id_OSCA, id_OSC_CORE},          {id_DP16K, id_DP16K_MODE},       {id_PDP16K, id_PDP16K_MODE},
-                {id_PDPSC16K, id_PDPSC16K_MODE}, {id_SP16K, id_SP16K_MODE},       {id_FIFO16K, id_FIFO16K_MODE},
-                {id_SP512K, id_SP512K_MODE},     {id_DPSC512K, id_DPSC512K_MODE}, {id_PDPSC512K, id_PDPSC512K_MODE},
-                {id_PLL, id_PLL_CORE},           {id_DPHY, id_DPHY_CORE},
-                {id_MULTIBOOT, id_CONFIG_MULTIBOOT_CORE}, {id_CONFIG_LMMI, id_CONFIG_LMMI_CORE},
+                {id_OSCA, id_OSC_CORE},
+                {id_DP16K, id_DP16K_MODE},
+                {id_PDP16K, id_PDP16K_MODE},
+                {id_PDPSC16K, id_PDPSC16K_MODE},
+                {id_SP16K, id_SP16K_MODE},
+                {id_FIFO16K, id_FIFO16K_MODE},
+                {id_SP512K, id_SP512K_MODE},
+                {id_DPSC512K, id_DPSC512K_MODE},
+                {id_PDPSC512K, id_PDPSC512K_MODE},
+                {id_PLL, id_PLL_CORE},
+                {id_DPHY, id_DPHY_CORE},
+                {id_MULTIBOOT, id_CONFIG_MULTIBOOT_CORE},
+                {id_CONFIG_LMMI, id_CONFIG_LMMI_CORE},
         };
 
         // extra prefix needed for this primitive for some reason
@@ -1104,7 +1112,6 @@ struct NexusPacker
                 continue;
             prim_to_core(ci, prim_map.at(ci->type));
         }
-
     }
 
     void add_bus_xform(XFormRule &rule, const std::string &o, const std::string &n, int width, int old_offset = 0,
@@ -1250,7 +1257,8 @@ struct NexusPacker
             xform_cell(base_iodelay_rules, ci);
 
             NetInfo *a = ci->getPort(id_A);
-            if (a != nullptr && a->driver.cell != nullptr && a->driver.cell->type.in(id_SEIO18_CORE, id_SEIO33_CORE, id_DIFFIO18_CORE)) {
+            if (a != nullptr && a->driver.cell != nullptr &&
+                a->driver.cell->type.in(id_SEIO18_CORE, id_SEIO33_CORE, id_DIFFIO18_CORE)) {
                 // It's an input delay
                 log_info("   processing input delay cell '%s'\n", ci->name.c_str(ctx));
                 ci->params[id_INMUX] = std::string("DELAY");
@@ -1259,7 +1267,8 @@ struct NexusPacker
                 continue;
             }
             NetInfo *z = ci->getPort(id_Z);
-            if (z != nullptr && z->users.entries() == 1 && (*z->users.begin()).cell->type.in(id_SEIO18_CORE, id_SEIO33_CORE, id_DIFFIO18_CORE)) {
+            if (z != nullptr && z->users.entries() == 1 &&
+                (*z->users.begin()).cell->type.in(id_SEIO18_CORE, id_SEIO33_CORE, id_DIFFIO18_CORE)) {
                 // It's an output delay
                 log_info("   processing output delay cell '%s'\n", ci->name.c_str(ctx));
                 ci->params[id_OUTMUX] = std::string("DELAY");
@@ -1270,7 +1279,6 @@ struct NexusPacker
             log_error("Failed to determine if delay cell '%s' was an input or output delay.\n", ci->name.c_str(ctx));
         }
     }
-
 
     void transform_iologic()
     {
@@ -1312,7 +1320,7 @@ struct NexusPacker
     {
         // Find pairs of delay IOLOGIC and logic IOLOGIC
         // <delay iol, logic iol, ouput>
-        std::vector<std::tuple<CellInfo*, CellInfo *, bool>> delay_iol;
+        std::vector<std::tuple<CellInfo *, CellInfo *, bool>> delay_iol;
         for (auto &cell : ctx->cells) {
             CellInfo *ci = cell.second.get();
             if (!ci->type.in(id_SIOLOGIC, id_IOLOGIC))
@@ -1368,8 +1376,8 @@ struct NexusPacker
                     continue;
                 delay_iol->movePortTo(port.first, logic_iol, port.first);
             }
-            log_info("   merged delay IOLOGIC '%s' into logic IOLOGIC '%s'\n",
-                delay_iol->name.c_str(ctx), logic_iol->name.c_str(ctx));
+            log_info("   merged delay IOLOGIC '%s' into logic IOLOGIC '%s'\n", delay_iol->name.c_str(ctx),
+                     logic_iol->name.c_str(ctx));
             ctx->cells.erase(delay_iol->name);
         }
     }

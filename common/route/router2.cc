@@ -954,7 +954,7 @@ struct Router2
                         if (midpoint_wire == -1) {
                             midpoint_wire = curr.wire;
                             best_midpoint_cost = curr.score.cost;
-                            if (curr_cong_weight >= 10) { 
+                            if (curr_cong_weight >= 10) {
                                 // try harder at this point to prevent infinite iterations when constants conflict
                                 toexplore = iter + std::min(200, int(curr.score.cost));
                             } else {
@@ -969,7 +969,7 @@ struct Router2
                             // Meet in the middle; done
                             midpoint_wire = curr.wire;
                             break;
-                        } 
+                        }
                     }
                     // Don't allow the same wire to be bound to the same net with a different driving pip
                     PipId bound_pip;
@@ -1328,7 +1328,8 @@ struct Router2
                 if (bound_net == nullptr) {
                     to_bind.push_back(p);
                 }
-            } else if (!ad.pre_routed || ctx->getBoundPipNet(p) != net) { // allow pre routing to break normal validity checking rules
+            } else if (!ad.pre_routed ||
+                       ctx->getBoundPipNet(p) != net) { // allow pre routing to break normal validity checking rules
                 if (ctx->verbose) {
                     log_info("Failed to bind pip %s to net %s\n", ctx->nameOfPip(p), net->name.c_str(ctx));
                 }

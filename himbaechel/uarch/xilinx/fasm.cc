@@ -44,7 +44,7 @@ extern const uint16_t filter_lookup_low_ss[];
 extern const uint16_t filter_lookup_high[];
 extern const uint16_t filter_lookup_optimized[];
 extern const int64_t lk_table[];
-};
+}; // namespace Xc7MMCM
 
 namespace {
 struct FasmBackend
@@ -789,7 +789,6 @@ struct FasmBackend
             iostandard.erase(0, 5);
         bool is_sstl = iostandard == "SSTL12" || iostandard == "SSTL135" || iostandard == "SSTL15";
 
-
         int hclk = uarch->hclk_for_iob(pad->bel);
 
         if (only_diff)
@@ -1512,14 +1511,13 @@ struct FasmBackend
         pop(2);
     }
 
-
- void write_mmcm_clkout(const std::string &name, CellInfo *ci)
+    void write_mmcm_clkout(const std::string &name, CellInfo *ci)
     {
         // FIXME: variable duty cycle
         int high = 1, low = 1, phasemux = 0, delaytime = 0, frac = 0;
         bool no_count = false, edge = false;
-        double divide = float_or_default(ci, name + ((name == "CLKFBOUT") ? "_MULT_F" :
-                                                     (name == "CLKOUT0" ? "_DIVIDE_F" : "_DIVIDE")), 1);
+        double divide = float_or_default(
+                ci, name + ((name == "CLKFBOUT") ? "_MULT_F" : (name == "CLKOUT0" ? "_DIVIDE_F" : "_DIVIDE")), 1);
         double phase = float_or_default(ci, name + "_PHASE", 1);
         if (divide <= 1) {
             no_count = true;
@@ -1568,16 +1566,19 @@ struct FasmBackend
             write_int_vector(name + "_CLKOUT1_HIGH_TIME[5:0]", high, 6);
             write_int_vector(name + "_CLKOUT1_LOW_TIME[5:0]", low, 6);
 
-            auto phase_mux_feature = name + (is_clkout_5_or_6 ? "_CLKOUT2_FRACTIONAL_PHASE_MUX_F[0]" : "_CLKOUT2_PHASE_MUX[0]");
+            auto phase_mux_feature =
+                    name + (is_clkout_5_or_6 ? "_CLKOUT2_FRACTIONAL_PHASE_MUX_F[0]" : "_CLKOUT2_PHASE_MUX[0]");
             write_int_vector(name + "_CLKOUT1_PHASE_MUX[2:0]", phasemux, 3);
 
             auto edge_feature = name + (is_clkout_5_or_6 ? "_CLKOUT2_FRACTIONAL_EDGE[0]" : "_CLKOUT2_EDGE[0]");
             write_bit(edge_feature, edge);
 
-            auto no_count_feature = name + (is_clkout_5_or_6 ? "_CLKOUT2_FRACTIONAL_NO_COUNT[0]" : "_CLKOUT2_NO_COUNT[0]");
+            auto no_count_feature =
+                    name + (is_clkout_5_or_6 ? "_CLKOUT2_FRACTIONAL_NO_COUNT[0]" : "_CLKOUT2_NO_COUNT[0]");
             write_bit(no_count_feature, no_count);
 
-            auto delay_time_feature = name + (is_clkout_5_or_6 ? "_CLKOUT2_FRACTIONAL_DELAY_TIME[5:0]" : "_CLKOUT2_DELAY_TIME[5:0]");
+            auto delay_time_feature =
+                    name + (is_clkout_5_or_6 ? "_CLKOUT2_FRACTIONAL_DELAY_TIME[5:0]" : "_CLKOUT2_DELAY_TIME[5:0]");
             write_int_vector(delay_time_feature, delaytime, 6);
 
             if (!is_clkout_5_or_6 && frac != 0) {
@@ -1617,7 +1618,8 @@ struct FasmBackend
             // both modes set this bit
             write_bit("Z_ZHOLD");
         } else {
-            log_error("unsupported COMPENSATION type '%s' for MMCM (supported compensation types: INTERNAL, ZHOLD)\n", comp.c_str());
+            log_error("unsupported COMPENSATION type '%s' for MMCM (supported compensation types: INTERNAL, ZHOLD)\n",
+                      comp.c_str());
         }
         pop();
 

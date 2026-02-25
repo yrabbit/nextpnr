@@ -244,7 +244,7 @@ static const dict<IdString, Arch::CellPinsData> base_cell_pin_data = {
         {id_CONFIG_MULTIBOOT_CORE,
          {
                  {{}, PINSTYLE_CIB},
-        }},
+         }},
         {id_CONFIG_LMMI_CORE,
          {
                  {id_LMMICLK, PINSTYLE_DEDI},
@@ -252,11 +252,11 @@ static const dict<IdString, Arch::CellPinsData> base_cell_pin_data = {
                  {id_RSTSMCLK, PINSTYLE_DEDI},
                  {id_SMCLK, PINSTYLE_DEDI},
                  {{}, PINSTYLE_CIB},
-        }},
+         }},
         {id_CONFIG_CLKRST_CORE,
          {
-                {{}, PINSTYLE_DEDI},
-        }},
+                 {{}, PINSTYLE_DEDI},
+         }},
 
 };
 } // namespace

@@ -10,12 +10,12 @@
 #define HIMBAECHEL_CONSTIDS "uarch/gowin/constids.inc"
 #include "himbaechel_constids.h"
 
+#include "array2d.h"
 #include "cst.h"
 #include "globals.h"
 #include "gowin.h"
 #include "gowin_utils.h"
 #include "pack.h"
-#include "array2d.h"
 
 #include "placer_heap.h"
 
@@ -114,7 +114,7 @@ struct GowinImpl : HimbaechelAPI
     bool dsp_valid(Loc l, IdString bel_type, bool explain_invalid) const;
     bool hclk_valid(BelId bel, IdString bel_type) const;
 
-    array2d<std::vector<CellInfo*>> fast_logic_cell;
+    array2d<std::vector<CellInfo *>> fast_logic_cell;
 };
 
 struct GowinArch : HimbaechelArch
@@ -721,7 +721,7 @@ void GowinImpl::postRoute()
             }
         }
     }
-    std::vector<CellInfo*> to_remove;
+    std::vector<CellInfo *> to_remove;
     for (auto &cell : ctx->cells) {
         CellInfo *ci = cell.second.get();
         if (ci->type.in(id_BLOCKER_LUT, id_BLOCKER_FF)) {
@@ -730,8 +730,8 @@ void GowinImpl::postRoute()
     }
     for (auto ci : to_remove) {
         auto root = ctx->cells.at(ci->cluster).get();
-        root->constr_children.erase(std::remove_if(root->constr_children.begin(),
-            root->constr_children.end(), [&](CellInfo *c) { return c == ci; }));
+        root->constr_children.erase(std::remove_if(root->constr_children.begin(), root->constr_children.end(),
+                                                   [&](CellInfo *c) { return c == ci; }));
         ctx->cells.erase(ci->name);
     }
 }
@@ -1079,9 +1079,7 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
     const CellInfo *alu = (z < 6) ? bels.at(z + BelZ::ALU0_Z) : nullptr;
     const CellInfo *ramw = bels.at(BelZ::RAMW_Z);
 
-    auto is_not_blocker = [](const CellInfo *ci) {
-        return ci && !ci->type.in(id_BLOCKER_LUT, id_BLOCKER_FF);
-    };
+    auto is_not_blocker = [](const CellInfo *ci) { return ci && !ci->type.in(id_BLOCKER_LUT, id_BLOCKER_FF); };
 
     if (alu && lut && lut->type != id_BLOCKER_LUT) {
         return false;
@@ -1090,17 +1088,13 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
     if (ramw) {
         // FFs in slices 4 and 5 are not allowed
         // also temporarily disallow FF to be placed near RAM
-        if (is_not_blocker(bels.at(0 * 2 + 1)) ||
-            is_not_blocker(bels.at(1 * 2 + 1)) ||
-            is_not_blocker(bels.at(2 * 2 + 1)) ||
-            is_not_blocker(bels.at(3 * 2 + 1)) ||
-            is_not_blocker(bels.at(4 * 2 + 1)) ||
-            is_not_blocker(bels.at(5 * 2 + 1))) {
+        if (is_not_blocker(bels.at(0 * 2 + 1)) || is_not_blocker(bels.at(1 * 2 + 1)) ||
+            is_not_blocker(bels.at(2 * 2 + 1)) || is_not_blocker(bels.at(3 * 2 + 1)) ||
+            is_not_blocker(bels.at(4 * 2 + 1)) || is_not_blocker(bels.at(5 * 2 + 1))) {
             return false;
         }
         if (gwu.has_DFF67()) {
-            if (is_not_blocker(bels.at(6 * 2 + 1)) ||
-                is_not_blocker(bels.at(7 * 2 + 1))) {
+            if (is_not_blocker(bels.at(6 * 2 + 1)) || is_not_blocker(bels.at(7 * 2 + 1))) {
                 return false;
             }
         }
@@ -1120,11 +1114,10 @@ bool GowinImpl::slice_valid(int x, int y, int z) const
     int adj_alu_z = adj_lut_z / 2 + BelZ::ALU0_Z;
     const CellInfo *adj_lut = bels.at(adj_lut_z);
     const CellInfo *adj_ff = bels.at(adj_lut_z + 1);
-    const CellInfo *adj_alu = adj_alu_z < (6 + BelZ::ALU0_Z)
-                                      ? bels.at(adj_alu_z)
-                                      : nullptr;
+    const CellInfo *adj_alu = adj_alu_z < (6 + BelZ::ALU0_Z) ? bels.at(adj_alu_z) : nullptr;
 
-    if ((alu && ((adj_lut && adj_lut->type != id_BLOCKER_LUT) || (adj_ff && !adj_alu))) || (((lut && lut->type != id_BLOCKER_LUT) || (ff && !alu)) && adj_alu)) {
+    if ((alu && ((adj_lut && adj_lut->type != id_BLOCKER_LUT) || (adj_ff && !adj_alu))) ||
+        (((lut && lut->type != id_BLOCKER_LUT) || (ff && !alu)) && adj_alu)) {
         return false;
     }
 
@@ -1284,17 +1277,17 @@ void GowinImpl::notifyBelChange(BelId bel, CellInfo *cell)
 
     IdString bel_type = ctx->getBelType(bel);
     switch (bel_type.hash()) {
-        case ID_LUT4: /* fall-through */
-        case ID_DFF:
-        case ID_ALU:
-        case ID_RAM16SDP4:
-        case ID_MUX2_LUT5:
-        case ID_MUX2_LUT6:
-        case ID_MUX2_LUT7:
-        case ID_MUX2_LUT8:
-            auto loc = ctx->getBelLocation(bel);
-            fast_logic_cell.at(loc.x, loc.y).at(loc.z) = cell;
-            return;
+    case ID_LUT4: /* fall-through */
+    case ID_DFF:
+    case ID_ALU:
+    case ID_RAM16SDP4:
+    case ID_MUX2_LUT5:
+    case ID_MUX2_LUT6:
+    case ID_MUX2_LUT7:
+    case ID_MUX2_LUT8:
+        auto loc = ctx->getBelLocation(bel);
+        fast_logic_cell.at(loc.x, loc.y).at(loc.z) = cell;
+        return;
     }
 
     if (cell != nullptr && !is_dsp(cell)) {

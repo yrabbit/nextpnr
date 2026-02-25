@@ -1147,8 +1147,6 @@ class HeAPPlacer
                 }
 
                 total_iters_for_cell++;
-
-        
             }
             if (ctx->verbose) {
                 auto ci_endt = std::chrono::high_resolution_clock::now();
@@ -1326,7 +1324,7 @@ class HeAPPlacer
             occupancy.resize(p->max_x + 1,
                              std::vector<std::vector<int>>(p->max_y + 1, std::vector<int>(buckets.size(), 0)));
             fixed_occupancy.resize(p->max_x + 1,
-                             std::vector<std::vector<int>>(p->max_y + 1, std::vector<int>(buckets.size(), 0)));
+                                   std::vector<std::vector<int>>(p->max_y + 1, std::vector<int>(buckets.size(), 0)));
             groups.resize(p->max_x + 1, std::vector<int>(p->max_y + 1, -1));
             chaines.resize(p->max_x + 1, std::vector<ChainExtent>(p->max_y + 1));
             cells_at_location.resize(p->max_x + 1, std::vector<std::vector<CellInfo *>>(p->max_y + 1));

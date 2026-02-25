@@ -54,7 +54,7 @@ std::string get_backtrace_str()
 {
     std::ostringstream ss;
     ss << "Backtrace: " << std::endl;
-    #if defined(__GLIBC__)
+#if defined(__GLIBC__)
     static const size_t MAX_BT_SIZE = 1024;
     std::array<void *, MAX_BT_SIZE> bt_data;
     int bt_len = backtrace(bt_data.data(), MAX_BT_SIZE);
@@ -64,7 +64,7 @@ std::string get_backtrace_str()
     for (int i = 0; i < bt_len; i++)
         ss << "  " << bt_symbols[i] << std::endl;
     free(bt_symbols);
-    #else
+#else
     unw_cursor_t cursor;
     unw_context_t context;
     unw_getcontext(&context);
@@ -78,15 +78,13 @@ std::string get_backtrace_str()
 
         unw_get_reg(&cursor, UNW_REG_IP, &ip);
         if (unw_get_proc_name(&cursor, func_name, sizeof(func_name), &offset) == 0) {
-            ss << "  #" << frame_num << ": " << func_name << " + 0x"
-               << std::hex << offset << " [0x" << ip << "]\n";
+            ss << "  #" << frame_num << ": " << func_name << " + 0x" << std::hex << offset << " [0x" << ip << "]\n";
         } else {
-            ss << "  #" << frame_num << ": -- unknown -- [0x"
-               << std::hex << ip << "]\n";
+            ss << "  #" << frame_num << ": -- unknown -- [0x" << std::hex << ip << "]\n";
         }
         frame_num++;
     }
-    #endif
+#endif
     return ss.str();
 }
 #else

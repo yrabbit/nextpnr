@@ -480,7 +480,8 @@ void GowinPacker::pack_alus(void)
         ctx->cells[ncell->name] = std::move(ncell);
     }
     new_cells.clear();
-    // The placer doesn't know "a priori" that LUTs and ALUs conflict. So create blocker LUTs to make this explicit and reduce wasted legalisation effort
+    // The placer doesn't know "a priori" that LUTs and ALUs conflict. So create blocker LUTs to make this explicit and
+    // reduce wasted legalisation effort
     for (auto &cell : ctx->cells) {
         auto ci = cell.second.get();
         if (ci->cluster == ClusterId()) {
@@ -609,7 +610,8 @@ void GowinPacker::pack_ssram(void)
                 }
             }
             for (int i = 4; i < 8; ++i) {
-                auto cell = std::make_unique<CellInfo>(ctx, ctx->idf("%s_BLOCKER_LUT_%d", ctx->nameOf(ci), i), id_BLOCKER_LUT);
+                auto cell = std::make_unique<CellInfo>(ctx, ctx->idf("%s_BLOCKER_LUT_%d", ctx->nameOf(ci), i),
+                                                       id_BLOCKER_LUT);
                 cell->cluster = ci->cluster;
                 ci->constr_children.push_back(cell.get());
                 cell->constr_abs_z = true;
@@ -619,7 +621,8 @@ void GowinPacker::pack_ssram(void)
                 new_cells.emplace_back(std::move(cell));
             }
             for (int i = 0; i < (gwu.has_DFF67() ? 8 : 6); ++i) {
-                auto cell = std::make_unique<CellInfo>(ctx, ctx->idf("%s_BLOCKER_FF_%d", ctx->nameOf(ci), i), id_BLOCKER_FF);
+                auto cell = std::make_unique<CellInfo>(ctx, ctx->idf("%s_BLOCKER_FF_%d", ctx->nameOf(ci), i),
+                                                       id_BLOCKER_FF);
                 cell->cluster = ci->cluster;
                 ci->constr_children.push_back(cell.get());
                 cell->constr_abs_z = true;

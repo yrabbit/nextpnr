@@ -536,8 +536,8 @@ struct NexusFasmWriter
         BelId bel = cell->bel;
         push_bel(bel);
         write_enum(cell, "SOURCESEL", "DIS");
-        write_int_vector(stringf("MSPIADDR[31:0]"),
-                         ctx->parse_lattice_param_from_cell(cell, id_MSPIADDR, 32, 0).intval, 32);
+        write_int_vector(stringf("MSPIADDR[31:0]"), ctx->parse_lattice_param_from_cell(cell, id_MSPIADDR, 32, 0).intval,
+                         32);
         pop();
     }
     // Write config for an CONFIG_LMMI_CORE cell
@@ -662,7 +662,7 @@ struct NexusFasmWriter
         write_enum(cell, "TSREG.REGSET", "RESET");
         if (cell->params.count(ctx->id("DELAY.DEL_VALUE"))) {
             write_int_vector(stringf("DELAY.DEL_VALUE[6:0]"),
-                         int_or_default(cell->params, ctx->id("DELAY.DEL_VALUE"), 0), 7);
+                             int_or_default(cell->params, ctx->id("DELAY.DEL_VALUE"), 0), 7);
         }
         write_enum(cell, "DELAY.COARSE_DELAY");
         write_enum(cell, "DELAY.COARSE_DELAY_MODE");
