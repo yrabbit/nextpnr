@@ -8,14 +8,13 @@ Currently nextpnr supports:
  * Lattice iCE40 devices supported by [Project IceStorm](https://github.com/YosysHQ/icestorm)
  * Lattice ECP5 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
  * Lattice Nexus devices supported by [Project Oxide](https://github.com/gatecat/prjoxide)
- * Gowin LittleBee devices supported by [Project Apicula](https://github.com/YosysHQ/apicula)
+ * Gowin LittleBee and Aurora V devices supported by [Project Apicula](https://github.com/YosysHQ/apicula)
  * NanoXplore NG-Ultra devices supported by [Project Beyond](https://github.com/YosysHQ-GmbH/prjbeyond-db)
  * Cologne Chip GateMate devices supported by [Project Peppercorn](https://github.com/YosysHQ/prjpeppercorn)
  * *(experimental)* Cyclone V devices supported by [Mistral](https://github.com/Ravenslofty/mistral)
  * *(experimental)* Lattice MachXO2 devices supported by [Project Trellis](https://github.com/YosysHQ/prjtrellis)
+ * *(experimental)* Xilinx 7-series devices supported by [Project X-Ray](https://github.com/F4PGA/prjxray)
  * *(experimental)* a "generic" back-end for user-defined architectures
-
-There is some work in progress towards [support for Xilinx devices](https://github.com/gatecat/nextpnr-xilinx/) but it is not upstream and not intended for end users at the present time. We hope to see more FPGA families supported in the future. We would love your help in developing this awesome new project!
 
 A brief (academic) paper describing the Yosys+nextpnr flow can be found
 on [arXiv](https://arxiv.org/abs/1903.10407).
@@ -36,14 +35,14 @@ Prerequisites
 The following packages need to be installed for building nextpnr, independent
 of the selected architecture:
 
-- CMake 3.13 or later
+- CMake 3.25 or later
 - Modern C++17 compiler (`clang-format` required for development)
 - Python 3.5 or later, including development libraries (`python3-dev` for Ubuntu)
   - Python 3.9 or later is required for `nextpnr-himbaechel`
   - on Windows make sure to install same version as supported by [vcpkg](https://github.com/Microsoft/vcpkg/blob/master/ports/python3/CONTROL)
 - Boost libraries (`libboost-dev libboost-filesystem-dev libboost-thread-dev libboost-program-options-dev libboost-iostreams-dev libboost-dev` or `libboost-all-dev` for Ubuntu)
-- Eigen3 (`libeigen3-dev` for Ubuntu) is required to build the analytic placer
-- Latest git Yosys is required to synthesise the demo design
+- Eigen3 (`libeigen3-dev` for Ubuntu)
+- Yosys is required to synthesise the demo design
 - For building on Windows with MSVC, usage of vcpkg is advised for dependency installation.
   - For 32 bit builds: `vcpkg install boost-filesystem boost-program-options boost-thread eigen3`
   - For 64 bit builds: `vcpkg install boost-filesystem:x64-windows boost-program-options:x64-windows boost-thread:x64-windows eigen3:x64-windows`
@@ -126,8 +125,6 @@ sudo make install
 ```
 
  - Examples of the Nexus flow for a range of boards can be found in the [Project Oxide Examples](https://github.com/gatecat/prjoxide/tree/master/examples).
-
-Nexus support is currently experimental, and has only been tested with engineering sample silicon.
 
 ### nextpnr-mistral
 
