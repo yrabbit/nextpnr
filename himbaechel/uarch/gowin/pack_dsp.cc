@@ -452,6 +452,79 @@ void GowinPacker::pack_dsp(void)
                     }
                 }
             } break;
+            case ID_MULTALU27X18: {
+                for (int i = 0; i < 2; ++i) {
+                    ci->renamePort(ctx->idf("CLK[%d]", i), ctx->idf("CLK%d", i));
+                    ci->renamePort(ctx->idf("CE[%d]", i), ctx->idf("CE%d", i));
+                    ci->renamePort(ctx->idf("RESET[%d]", i), ctx->idf("RESET%d", i));
+                    ci->renamePort(ctx->idf("ADDSUB[%d]", i), ctx->idf("ADDSUB%d", i));
+                }
+                for (int i = 0; i < 27; ++i) {
+                    ci->renamePort(ctx->idf("A[%d]", i), ctx->idf("A%d", i));
+                }
+                for (int i = 0; i < 26; ++i) {
+                    ci->renamePort(ctx->idf("D[%d]", i), ctx->idf("D%d", i));
+                }
+                for (int i = 0; i < 18; ++i) {
+                    ci->renamePort(ctx->idf("B[%d]", i), ctx->idf("B%d", i));
+                }
+                for (int i = 0; i < 48; ++i) {
+                    ci->renamePort(ctx->idf("C[%d]", i), ctx->idf("C%d", i));
+                }
+                pass_net_type(ci, id_ACCSEL);
+                ci->cell_bel_pins.at(id_ACCSEL).clear();
+                ci->cell_bel_pins.at(id_ACCSEL).push_back(id_ACCSEL0);
+                ci->cell_bel_pins.at(id_ACCSEL).push_back(id_ACCSEL1);
+
+                for (int i = 0; i < 48; ++i) {
+                    ci->renamePort(ctx->idf("DOUT[%d]", i), ctx->idf("DOUT%d", i));
+                }
+
+                // mark 2 mult12x12 as parts of the cluster to prevent
+                // other multipliers from being placed there
+                ci->cluster = ci->name;
+                ci->constr_abs_z = false;
+                ci->constr_x = 0;
+                ci->constr_y = 0;
+                ci->constr_z = 0;
+                ci->constr_children.clear();
+
+                for (int i = 0; i < 2; ++i) {
+                    IdString mult12x12_name = gwu.create_aux_name(ci->name, i * 2);
+                    std::unique_ptr<CellInfo> mult12x12_cell = gwu.create_cell(mult12x12_name, id_DUMMY_CELL);
+                    new_cells.push_back(std::move(mult12x12_cell));
+                    CellInfo *mult12x12_ci = new_cells.back().get();
+
+                    mult12x12_ci->cluster = ci->name;
+                    mult12x12_ci->constr_abs_z = false;
+                    mult12x12_ci->constr_x = 0;
+                    mult12x12_ci->constr_y = 0;
+                    mult12x12_ci->constr_z = BelZ::MULT12X12_0_Z - BelZ::MULTALU27X18_Z + i;
+                }
+
+                // DSP head? This primitive has the ability to form chains using both SO[AB] -> SI[AB] and
+                // CASO->CASI
+                bool cas_head = false;
+                if (gwu.dsp_bus_src(ci, "CASI", 48) == nullptr) {
+                    for (int i = 0; i < 48; ++i) {
+                        ci->disconnectPort(ctx->idf("CASI[%d]", i));
+                    }
+                    cas_head = true;
+                }
+                bool so_head = false;
+                if (gwu.dsp_bus_src(ci, "SIA", 27) == nullptr) {
+                    for (int i = 0; i < 27; ++i) {
+                        ci->disconnectPort(ctx->idf("SIA[%d]", i));
+                    }
+                    so_head = true;
+                }
+                if (cas_head && so_head) {
+                    dsp_heads.push_back(ci);
+                    if (ctx->verbose) {
+                        log_info(" found a DSP head: %s\n", ctx->nameOf(ci));
+                    }
+                }
+            } break;
             case ID_MULTALU36X18: {
                 if (ci->params.count(id_MULTALU18X18_MODE) == 0) {
                     ci->setParam(id_MULTALU18X18_MODE, 0);
@@ -803,6 +876,7 @@ void GowinPacker::pack_dsp(void)
         }
     }
 
+    // make CASO->CASI only chain from DSPs
     auto make_CAS_chain = [&](CellInfo *head, int wire_num) {
         CellInfo *cur_dsp = head;
         while (1) {
@@ -823,6 +897,83 @@ void GowinPacker::pack_dsp(void)
             cur_dsp->setAttr(id_USE_CASCADE_IN, 1);
             if (ctx->verbose) {
                 log_info("  add %s to the chain.\n", ctx->nameOf(cur_dsp));
+            }
+            if (head->cluster == ClusterId()) {
+                head->cluster = head->name;
+            }
+            cur_dsp->cluster = head->name;
+            head->constr_children.push_back(cur_dsp);
+            for (auto child : cur_dsp->constr_children) {
+                child->cluster = head->name;
+                head->constr_children.push_back(child);
+            }
+            cur_dsp->constr_children.clear();
+        }
+    };
+
+    // make combined CASO->CASI and SOA->SIA chain
+    auto make_SIA_CAS_chain = [&](CellInfo *head, int cas_wire_num, int sia_wire_num, bool use_sib = true) {
+        CellInfo *cur_dsp = head;
+        while (1) {
+            bool end_of_cas_chain = false;
+            int wire_num = cas_wire_num;
+            CellInfo *next_dsp_a = gwu.dsp_bus_dst(cur_dsp, "CASO", wire_num);
+            if (next_dsp_a == nullptr) {
+                // End of CASO chain
+                for (int i = 0; i < wire_num; ++i) {
+                    cur_dsp->disconnectPort(ctx->idf("CASO[%d]", i));
+                }
+                end_of_cas_chain = true;
+            } else {
+                for (int i = 0; i < wire_num; ++i) {
+                    cur_dsp->disconnectPort(ctx->idf("CASO[%d]", i));
+                    next_dsp_a->disconnectPort(ctx->idf("CASI[%d]", i));
+                }
+            }
+
+            bool end_of_so_chain = false;
+            wire_num = sia_wire_num;
+            CellInfo *next_so_dsp_a = gwu.dsp_bus_dst(cur_dsp, "SOA", wire_num);
+            CellInfo *next_so_dsp_b = use_sib ? gwu.dsp_bus_dst(cur_dsp, "SOB", wire_num) : nullptr;
+            if (next_so_dsp_a != nullptr && next_so_dsp_b != nullptr && next_so_dsp_a != next_so_dsp_b) {
+                log_error("%s is the source for two different DSPs (%s and %s) in the chain.", ctx->nameOf(cur_dsp),
+                          ctx->nameOf(next_so_dsp_a), ctx->nameOf(next_so_dsp_b));
+            }
+            if (next_so_dsp_a == nullptr && (!use_sib || (use_sib && next_so_dsp_b == nullptr))) {
+                // End of SO chain
+                for (int i = 0; i < wire_num; ++i) {
+                    cur_dsp->disconnectPort(ctx->idf("SOA[%d]", i));
+                    if (use_sib) {
+                        cur_dsp->disconnectPort(ctx->idf("SOB[%d]", i));
+                    }
+                }
+                end_of_so_chain = true;
+            } else {
+                next_so_dsp_a = next_so_dsp_a != nullptr ? next_so_dsp_a : next_so_dsp_b;
+                for (int i = 0; i < wire_num; ++i) {
+                    cur_dsp->disconnectPort(ctx->idf("SOA[%d]", i));
+                    next_so_dsp_a->disconnectPort(ctx->idf("SIA[%d]", i));
+                    if (use_sib) {
+                        cur_dsp->disconnectPort(ctx->idf("SOB[%d]", i));
+                        next_so_dsp_a->disconnectPort(ctx->idf("SIB[%d]", i));
+                    }
+                }
+            }
+            if (end_of_cas_chain && end_of_so_chain) {
+                break;
+            }
+
+            // to the next
+            if (!end_of_cas_chain) {
+                cur_dsp->setAttr(id_USE_CASCADE_OUT, 1);
+            }
+            cur_dsp = next_dsp_a != nullptr ? next_dsp_a : next_so_dsp_a;
+            if (!end_of_cas_chain) {
+                cur_dsp->setAttr(id_USE_CASCADE_IN, 1);
+            }
+            if (ctx->verbose) {
+                log_info("  add %s to the chain. End of the SO chain:%d, end of the CAS chain:%d\n",
+                         ctx->nameOf(cur_dsp), end_of_so_chain, end_of_cas_chain);
             }
             if (head->cluster == ClusterId()) {
                 head->cluster = head->name;
@@ -946,77 +1097,13 @@ void GowinPacker::pack_dsp(void)
         case ID_MULTADDALU12X12: {
             make_CAS_chain(head, 48);
         } break;
+        case ID_MULTALU27X18: {
+            // This primitive has the ability to form chains using both SO[AB] -> SI[AB] and CASO->CASI
+            make_SIA_CAS_chain(head, 48, 27, false);
+        } break;
         case ID_MULTADDALU18X18: {
             // This primitive has the ability to form chains using both SO[AB] -> SI[AB] and CASO->CASI
-            CellInfo *cur_dsp = head;
-            while (1) {
-                bool end_of_cas_chain = false;
-                int wire_num = 55;
-                CellInfo *next_dsp_a = gwu.dsp_bus_dst(cur_dsp, "CASO", wire_num);
-                if (next_dsp_a == nullptr) {
-                    // End of CASO chain
-                    for (int i = 0; i < wire_num; ++i) {
-                        cur_dsp->disconnectPort(ctx->idf("CASO[%d]", i));
-                    }
-                    end_of_cas_chain = true;
-                } else {
-                    for (int i = 0; i < wire_num; ++i) {
-                        cur_dsp->disconnectPort(ctx->idf("CASO[%d]", i));
-                        next_dsp_a->disconnectPort(ctx->idf("CASI[%d]", i));
-                    }
-                }
-
-                bool end_of_so_chain = false;
-                wire_num = 18;
-                CellInfo *next_so_dsp_a = gwu.dsp_bus_dst(cur_dsp, "SOA", wire_num);
-                CellInfo *next_so_dsp_b = gwu.dsp_bus_dst(cur_dsp, "SOB", wire_num);
-                if (next_so_dsp_a != nullptr && next_so_dsp_b != nullptr && next_so_dsp_a != next_so_dsp_b) {
-                    log_error("%s is the source for two different DSPs (%s and %s) in the chain.", ctx->nameOf(cur_dsp),
-                              ctx->nameOf(next_so_dsp_a), ctx->nameOf(next_so_dsp_b));
-                }
-                if (next_so_dsp_a == nullptr && next_so_dsp_b == nullptr) {
-                    // End of SO chain
-                    for (int i = 0; i < wire_num; ++i) {
-                        cur_dsp->disconnectPort(ctx->idf("SOA[%d]", i));
-                        cur_dsp->disconnectPort(ctx->idf("SOB[%d]", i));
-                    }
-                    end_of_so_chain = true;
-                } else {
-                    next_so_dsp_a = next_so_dsp_a != nullptr ? next_so_dsp_a : next_so_dsp_b;
-                    for (int i = 0; i < wire_num; ++i) {
-                        cur_dsp->disconnectPort(ctx->idf("SOA[%d]", i));
-                        cur_dsp->disconnectPort(ctx->idf("SOB[%d]", i));
-                        next_so_dsp_a->disconnectPort(ctx->idf("SIA[%d]", i));
-                        next_so_dsp_a->disconnectPort(ctx->idf("SIB[%d]", i));
-                    }
-                }
-                if (end_of_cas_chain && end_of_so_chain) {
-                    break;
-                }
-
-                // to next
-                if (!end_of_cas_chain) {
-                    cur_dsp->setAttr(id_USE_CASCADE_OUT, 1);
-                }
-                cur_dsp = next_dsp_a != nullptr ? next_dsp_a : next_so_dsp_a;
-                if (!end_of_cas_chain) {
-                    cur_dsp->setAttr(id_USE_CASCADE_IN, 1);
-                }
-                if (ctx->verbose) {
-                    log_info("  add %s to the chain. End of the SO chain:%d, end of the CAS chain:%d\n",
-                             ctx->nameOf(cur_dsp), end_of_so_chain, end_of_cas_chain);
-                }
-                if (head->cluster == ClusterId()) {
-                    head->cluster = head->name;
-                }
-                cur_dsp->cluster = head->name;
-                head->constr_children.push_back(cur_dsp);
-                for (auto child : cur_dsp->constr_children) {
-                    child->cluster = head->name;
-                    head->constr_children.push_back(child);
-                }
-                cur_dsp->constr_children.clear();
-            }
+            make_SIA_CAS_chain(head, 55, 18);
         } break;
         }
     }
