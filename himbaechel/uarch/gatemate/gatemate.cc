@@ -39,7 +39,7 @@ po::options_description GateMateImpl::getUArchOptions()
     specific.add_options()("out", po::value<std::string>(), "textual configuration bitstream output file");
     specific.add_options()("ccf", po::value<std::string>(), "name of constraints file");
     specific.add_options()("allow-unconstrained", "allow unconstrained IOs");
-    specific.add_options()("fpga_mode", po::value<std::string>(), "operation mode (1:lowpower, 2:economy, 3:speed)");
+    specific.add_options()("fpga_mode", po::value<std::string>(), "performance mode (1:lowpower, 2:economy, 3:speed)");
     specific.add_options()("time_mode", po::value<std::string>(), "timing mode (1:best, 2:typical, 3:worst)");
     specific.add_options()("strategy", po::value<std::string>(),
                            "multi-die clock placement strategy (mirror, full or clk1)");
@@ -61,7 +61,7 @@ static int parse_mode(const std::string &val, const std::map<std::string, int> &
         if (it != map.end())
             return it->second;
     }
-    log_error("%s\n", error_msg);
+    log_error("Invalid mode='%s', %s", val.c_str(), error_msg);
 }
 
 void GateMateImpl::init_database(Arch *arch)
@@ -79,10 +79,10 @@ void GateMateImpl::init_database(Arch *arch)
 
     if (args.options.count("fpga_mode"))
         fpga_mode = parse_mode(args.options["fpga_mode"].as<std::string>(), fpga_map,
-                               "operation mode valid values are {1:lowpower, 2:economy, 3:speed}");
+                               "performance valid values are {1:lowpower, 2:economy, 3:speed}.\n");
     if (args.options.count("time_mode"))
         timing_mode = parse_mode(args.options["time_mode"].as<std::string>(), timing_map,
-                                 "timing mode valid values are {1:best, 2:typical, 3:worst}");
+                                 "timing valid values are {1:best, 2:typical, 3:worst}.\n");
 
     std::string speed_grade = "";
     switch (timing_mode) {
@@ -96,10 +96,10 @@ void GateMateImpl::init_database(Arch *arch)
         speed_grade = "worst_";
         break;
     }
-    log_info("Using timing mode '%s'\n", timing_mode == 1   ? "BEST"
-                                         : timing_mode == 2 ? "TYPICAL"
-                                         : timing_mode == 3 ? "WORST"
-                                                            : "");
+    log_info("Using timing mode '%s'.\n", timing_mode == 1   ? "BEST"
+                                          : timing_mode == 2 ? "TYPICAL"
+                                          : timing_mode == 3 ? "WORST"
+                                                             : "");
 
     switch (fpga_mode) {
     case 1:
@@ -111,10 +111,10 @@ void GateMateImpl::init_database(Arch *arch)
     default:
         speed_grade += "spd";
     }
-    log_info("Using operation mode '%s'\n", fpga_mode == 1   ? "LOWPOWER"
-                                            : fpga_mode == 2 ? "ECONOMY"
-                                            : fpga_mode == 3 ? "SPEED"
-                                                             : "");
+    log_info("Using performance mode '%s'.\n", fpga_mode == 1   ? "LOWPOWER"
+                                               : fpga_mode == 2 ? "ECONOMY"
+                                               : fpga_mode == 3 ? "SPEED"
+                                                                : "");
     arch->set_speed_grade(speed_grade);
     use_cp_for_clk = args.options.count("clk-cp") == 1;
     use_cp_for_cpe = args.options.count("no-cpe-cp") == 0;
