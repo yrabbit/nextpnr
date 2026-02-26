@@ -140,6 +140,7 @@ CLKDIV_3_Z = 623
 MULT12X12_0_Z = 640
 MULT12X12_1_Z = 641
 MULTADDALU12X12_Z = 642
+MULTALU27X18_Z = 643
 
 # =======================================
 # Chipdb additional info
@@ -1195,6 +1196,28 @@ def create_dsp_5a_tiletype(chip: Chip, db: chipdb, x: int, y: int, ttyp: int, td
             add_port_wire(tt, dsp, portmap, f"RESET{inp}", "DSP_I", PinType.INPUT)
         for outp in range(24):
             add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
+
+    # create MultAlu27x18
+    belname = f'MULTALU27X1800'
+    portmap = db[y, x].bels[belname].portmap
+    dsp = tt.create_bel(belname, "MULTALU27X18", MULTALU27X18_Z)
+
+    for sfx, qnt in {('A', 27) , ('B', 18), ('C', 48), ('D', 26)}:
+        for inp in range(qnt):
+            add_port_wire(tt, dsp, portmap, f"{sfx}{inp}", "DSP_I", PinType.INPUT)
+    for inp in range(2):
+        add_port_wire(tt, dsp, portmap, f"CE{inp}", "DSP_I", PinType.INPUT)
+        add_port_wire(tt, dsp, portmap, f"CLK{inp}", "DSP_I", PinType.INPUT)
+        add_port_wire(tt, dsp, portmap, f"RESET{inp}", "DSP_I", PinType.INPUT)
+        add_port_wire(tt, dsp, portmap, f"ADDSUB{inp}", "DSP_I", PinType.INPUT)
+        add_port_wire(tt, dsp, portmap, f"ACCSEL{inp}", "DSP_I", PinType.INPUT)
+    add_port_wire(tt, dsp, portmap, "CASISEL", "DSP_I", PinType.INPUT)
+    add_port_wire(tt, dsp, portmap, "ASEL", "DSP_I", PinType.INPUT)
+    add_port_wire(tt, dsp, portmap, "CSEL", "DSP_I", PinType.INPUT)
+    add_port_wire(tt, dsp, portmap, "PSEL", "DSP_I", PinType.INPUT)
+    add_port_wire(tt, dsp, portmap, "PADDSUB", "DSP_I", PinType.INPUT)
+    for outp in range(48):
+        add_port_wire(tt, dsp, portmap, f"DOUT{outp}", "DSP_O", PinType.OUTPUT)
 
     # create MultAddAlu12x12
     belname = f'MULTADDALU12X1200'
