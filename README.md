@@ -111,7 +111,7 @@ make -j$(nproc)
 sudo make install
 ```
 
- - Examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/YosysHQ/prjtrellis/tree/master/examples).
+ - Examples of the ECP5 flow for a range of boards can be found in the [Project Trellis Examples](https://github.com/YosysHQ/prjtrellis/tree/main/examples).
 
 ### nextpnr-nexus
 
@@ -124,7 +124,7 @@ make -j$(nproc)
 sudo make install
 ```
 
- - Examples of the Nexus flow for a range of boards can be found in the [Project Oxide Examples](https://github.com/gatecat/prjoxide/tree/master/examples).
+ - Examples of the Nexus flow for a range of boards can be found in the [Project Oxide Examples](https://github.com/gatecat/prjoxide/tree/main/examples).
 
 ### nextpnr-mistral
 
