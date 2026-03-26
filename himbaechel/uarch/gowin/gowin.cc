@@ -193,6 +193,7 @@ void GowinImpl::init(Context *ctx)
     HimbaechelAPI::init(ctx);
 
     gwu.init(ctx);
+	log_info("Seed:%" PRIu64 "\n", ctx->rngstate);
 
     const ArchArgs &args = ctx->args;
 
