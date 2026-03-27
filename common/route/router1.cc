@@ -487,6 +487,11 @@ struct Router1
             log("  sink ..... %s\n", ctx->nameOfWire(dst_wire));
         }
 
+		bool our_src = src_wire == ctx->getWireByName(IdStringList::parse(ctx, std::string("X6Y22/OF1")));
+		if (our_src) {
+			log("Yes\n");
+		}
+
         // unbind wires that are currently used exclusively by this arc
 
         pool<WireId> old_arc_wires;
@@ -553,6 +558,9 @@ struct Router1
             QueuedWire qw = queue.top();
             queue.pop();
 
+			if (our_src) {
+				log("src:X6Y22/OF1\n");
+			}
             for (auto pip : ctx->getPipsDownhill(qw.wire)) {
                 delay_t next_delay = qw.delay + ctx->getPipDelay(pip).maxDelay();
                 delay_t next_penalty = qw.penalty;
