@@ -1,3 +1,4 @@
+#include <cinttypes>
 #include <map>
 #include <regex>
 
@@ -195,6 +196,7 @@ void GowinImpl::init(Context *ctx)
     gwu.init(ctx);
 
     const ArchArgs &args = ctx->args;
+    log_info("Seed:%" PRIu64 "\n", ctx->rngstate);
 
     // package and speed class
     std::regex speedre = std::regex("(.*)(C[0-9]/I[0-9])$");
